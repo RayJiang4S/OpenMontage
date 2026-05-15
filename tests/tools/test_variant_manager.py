@@ -223,6 +223,164 @@ def test_compare_reports_changed_fields(tmp_path: Path):
     assert result.data["diff"]["outputs"]["b"]["video"] == "renders/final-v2.mp4"
 
 
+def test_review_writes_interactive_page(tmp_path: Path):
+    path = _init_manifest(tmp_path)
+    output_dir = tmp_path / "variant-review"
+    (tmp_path / "artifacts").mkdir()
+    (tmp_path / "artifacts" / "captions.json").write_text(
+        json.dumps({"lines": ["生产问题出现后，先找到线索，再定位调用链。"]}),
+        encoding="utf-8",
+    )
+    (tmp_path / "renders").mkdir()
+    (tmp_path / "renders" / "final.mp4").write_bytes(b"fake mp4")
+    tool = VariantManager()
+    tool.execute({"operation": "add", "manifest_path": str(path), "variant": _variant("v1")})
+    tool.execute(
+        {
+            "operation": "add",
+            "manifest_path": str(path),
+            "variant": _variant("v2", video="renders/final-v2.mp4"),
+        }
+    )
+
+    result = tool.execute(
+        {
+            "operation": "review",
+            "manifest_path": str(path),
+            "channel": "standalone",
+            "output_dir": str(output_dir),
+            "run_id": "round-1",
+        }
+    )
+
+    assert result.success, result.error
+    html = (output_dir / "variant_review.html").read_text(encoding="utf-8")
+    assert result.data["language"] == "zh"
+    assert 'lang="zh-CN"' in html
+    assert "Variant Manager 版本评审" in html
+    assert "选用这个版本" in html
+    assert "要求生成新版本" in html
+    assert "<video controls" in html
+    assert "&quot;tool&quot;" not in html
+    assert '"tool": "variant_manager"' in html
+    assert "onplay=" in html
+    assert "round-1" in html
+    assert result.data["variant_count"] == 2
+
+
+def test_annotate_promotes_approved_selection(tmp_path: Path):
+    path = _init_manifest(tmp_path)
+    (tmp_path / "renders").mkdir()
+    (tmp_path / "renders" / "final-v2.mp4").write_bytes(b"fake video")
+    (tmp_path / "artifacts").mkdir()
+    (tmp_path / "artifacts" / "script.json").write_text(
+        json.dumps({"version": "1.0", "title": "Demo", "sections": []}),
+        encoding="utf-8",
+    )
+    (tmp_path / "artifacts" / "captions.json").write_text(
+        json.dumps({"lines": ["Hello"]}),
+        encoding="utf-8",
+    )
+    tool = VariantManager()
+    tool.execute({"operation": "add", "manifest_path": str(path), "variant": _variant("v1")})
+    tool.execute(
+        {
+            "operation": "add",
+            "manifest_path": str(path),
+            "variant": _variant("v2", video="renders/final-v2.mp4"),
+        }
+    )
+
+    result = tool.execute(
+        {
+            "operation": "annotate",
+            "manifest_path": str(path),
+            "review_payload": {
+                "version": "1.0",
+                "run_id": "round-1",
+                "channel": "standalone",
+                "selected_variant_id": "v2",
+                "decision": "APPROVED",
+                "notes": "",
+            },
+        }
+    )
+
+    assert result.success, result.error
+    assert result.data["review_complete"] is True
+    assert result.data["next_operation"] == "package_or_publish"
+    assert result.data["package_inputs"]["project_id"] == "demo-project"
+    assert result.data["package_inputs"]["variant_id"] == "v2"
+    assert result.data["package_inputs"]["channel"] == "standalone"
+    assert result.data["package_inputs"]["video_path"].endswith("renders/final-v2.mp4")
+    assert result.data["package_inputs"]["script_path"].endswith("artifacts/script.json")
+    roles = {item["role"] for item in result.data["package_inputs"]["extra_files"]}
+    assert {"captions", "variant_review_notes"} <= roles
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    assert manifest["current"] == {"standalone": "v2"}
+    assert manifest["variants"][1]["status"] == "approved"
+    assert manifest["variants"][1]["review"]["decision"] == "approved"
+
+
+def test_annotate_keeps_candidate_when_revision_requested(tmp_path: Path):
+    path = _init_manifest(tmp_path)
+    tool = VariantManager()
+    tool.execute({"operation": "add", "manifest_path": str(path), "variant": _variant("v1")})
+
+    result = tool.execute(
+        {
+            "operation": "annotate",
+            "manifest_path": str(path),
+            "review_payload": {
+                "version": "1.0",
+                "run_id": "round-1",
+                "channel": "default",
+                "selected_variant_id": "v1",
+                "decision": "NEEDS_REVISION",
+                "notes": "The closing frame should hold longer.",
+            },
+        }
+    )
+
+    assert result.success, result.error
+    assert result.data["review_complete"] is False
+    assert result.data["next_operation"] == "revise_variant"
+    assert result.data["pending_variant_ids"] == ["v1"]
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    assert manifest["current"] == {}
+    assert manifest["variants"][0]["status"] == "candidate"
+    assert manifest["variants"][0]["review"]["decision"] == "needs_revision"
+
+
+def test_annotate_records_new_variant_request(tmp_path: Path):
+    path = _init_manifest(tmp_path)
+    result = VariantManager().execute(
+        {
+            "operation": "annotate",
+            "manifest_path": str(path),
+            "review_payload": {
+                "version": "1.0",
+                "run_id": "round-1",
+                "channel": "default",
+                "decision": "REQUEST_NEW_VARIANT",
+                "notes": "None of these work for a standalone teaser.",
+                "action": {
+                    "decision": "REQUEST_NEW_VARIANT",
+                    "notes": "None of these work for a standalone teaser.",
+                },
+            },
+        }
+    )
+
+    assert result.success, result.error
+    assert result.data["review_complete"] is False
+    assert result.data["next_operation"] == "add_variant"
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    requests = manifest["metadata"]["variant_review_requests"]
+    assert requests[0]["decision"] == "request_new_variant"
+    assert "standalone teaser" in requests[0]["notes"]
+
+
 def test_validate_reports_missing_current_reference(tmp_path: Path):
     path = _init_manifest(tmp_path)
     manifest = json.loads(path.read_text())
