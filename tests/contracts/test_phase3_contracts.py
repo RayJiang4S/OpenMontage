@@ -26,11 +26,12 @@ from styles.playbook_loader import load_playbook, list_playbooks, validate_playb
 from tools.base_tool import ToolTier
 from tools.audio.music_gen import MusicGen
 from tools.tool_registry import ToolRegistry
+from tools.audio.doubao_tts import DoubaoTTS
 from tools.audio.elevenlabs_tts import ElevenLabsTTS
+from tools.audio.openai_audio_tts import OpenAIAudioTTS
 from tools.audio.openai_tts import OpenAITTS
 from tools.audio.piper_tts import PiperTTS
 from tools.audio.tts_selector import TTSSelector
-from tools.audio.doubao_tts import DoubaoTTS
 
 
 # ---- TTS Provider Tools ----
@@ -105,12 +106,19 @@ class TestNewToolsRegistry:
         reg = ToolRegistry()
         reg.register(DoubaoTTS())
         reg.register(ElevenLabsTTS())
+        reg.register(OpenAIAudioTTS())
         reg.register(OpenAITTS())
         reg.register(PiperTTS())
         voice_tools = reg.get_by_tier(ToolTier.VOICE)
-        assert len(voice_tools) == 4
+        assert len(voice_tools) == 5
         names = {t.name for t in voice_tools}
-        assert names == {"doubao_tts", "elevenlabs_tts", "openai_tts", "piper_tts"}
+        assert names == {
+            "doubao_tts",
+            "elevenlabs_tts",
+            "openai_audio_tts",
+            "openai_tts",
+            "piper_tts",
+        }
 
 
 class TestCapabilityMetadata:
@@ -127,18 +135,21 @@ class TestCapabilityMetadata:
         reg = ToolRegistry()
         reg.register(DoubaoTTS())
         reg.register(ElevenLabsTTS())
+        reg.register(OpenAIAudioTTS())
         reg.register(OpenAITTS())
         reg.register(PiperTTS())
         reg.register(TTSSelector())
         assert {tool.name for tool in reg.get_by_capability("tts")} == {
             "doubao_tts",
             "elevenlabs_tts",
+            "openai_audio_tts",
             "openai_tts",
             "piper_tts",
             "tts_selector",
         }
         assert {tool.name for tool in reg.get_by_provider("doubao")} == {"doubao_tts"}
         assert {tool.name for tool in reg.get_by_provider("elevenlabs")} == {"elevenlabs_tts"}
+        assert {tool.name for tool in reg.get_by_provider("openai_audio")} == {"openai_audio_tts"}
 
     def test_registry_catalog_views(self):
         reg = ToolRegistry()
@@ -148,7 +159,7 @@ class TestCapabilityMetadata:
         catalog = reg.capability_catalog()
         assert "tts" in catalog
         providers = {item["provider"] for item in catalog["tts"] if item["provider"] != "selector"}
-        assert providers == {"doubao", "elevenlabs", "google_tts", "openai", "piper"}
+        assert providers == {"doubao", "elevenlabs", "google_tts", "openai_audio", "openai", "piper"}
 
 
 # ---- Animated Explainer Pipeline ----
