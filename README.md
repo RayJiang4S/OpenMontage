@@ -44,7 +44,7 @@ Turn your AI coding assistant into a full video production studio. Describe what
   <video src="https://github.com/user-attachments/assets/8daca07f-cdf8-4bec-89c3-9dc2176363fa" width="100%" controls></video>
 </div>
 
-> **"THE LAST BANANA"** — a 60-second Pixar-style animated short about a lonely banana who finds friendship with a kiwi. 6 Kling v3-generated motion clips (via fal.ai), Google Chirp3-HD narration, royalty-free piano music, TikTok-style word-level captions, and Remotion composition. Total cost: **$1.33**.
+> **"THE LAST BANANA"** — a 60-second Pixar-style animated short about a lonely banana who finds friendship with a kiwi. 6 Kling v3-generated motion clips (via fal.ai), Google Gemini narration, royalty-free piano music, TikTok-style word-level captions, and Remotion composition. Total cost: **$1.33**.
 
 <div align="center">
   <video src="https://github.com/user-attachments/assets/8a6d2cc3-7ad2-46f5-922f-a8e3e5848d9f" width="100%" controls></video>
@@ -173,7 +173,8 @@ SUNO_API_KEY=your-key          # Full songs, instrumentals, any genre
 ELEVENLABS_API_KEY=your-key    # Premium TTS, AI music, sound effects
 OPENAI_API_KEY=your-key        # OpenAI TTS/audio-output narration, DALL-E 3 images
 XAI_API_KEY=your-key           # xAI Grok image edits/generation + Grok video generation
-GOOGLE_API_KEY=your-key        # Google Imagen images, Google TTS (700+ voices)
+GOOGLE_API_KEY=your-key        # Google Imagen images + Gemini API TTS
+GEMINI_API_KEY=your-key        # Optional Gemini API TTS alias
 DOUBAO_SPEECH_API_KEY=your-key # Doubao Speech Mandarin TTS
 MINIMAX_API_KEY=your-key       # MiniMax Speech TTS, voice cloning, voice design
 
@@ -453,7 +454,7 @@ Each tool declares which Layer 3 skills it relies on. The agent reads Layer 1 to
 | Provider | Type | Notes |
 |----------|------|-------|
 | **ElevenLabs** | Cloud API | Premium voice quality |
-| **Google TTS** | Cloud API | 700+ voices, 50+ languages — best for localization |
+| **Google TTS** | Cloud API | Latest Gemini API TTS prompt control |
 | **OpenAI Speech API** | Cloud API | Fast, affordable, instruction-directed with `gpt-4o-mini-tts` |
 | **OpenAI Audio TTS** | Cloud API | Audio-output chat models such as `gpt-audio-1.5` |
 | **Doubao Speech** | Cloud API | Strong Mandarin narration with timestamp metadata |

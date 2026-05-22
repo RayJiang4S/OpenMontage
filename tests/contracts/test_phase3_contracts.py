@@ -28,6 +28,7 @@ from tools.audio.music_gen import MusicGen
 from tools.tool_registry import ToolRegistry
 from tools.audio.doubao_tts import DoubaoTTS
 from tools.audio.elevenlabs_tts import ElevenLabsTTS
+from tools.audio.google_tts import GoogleTTS
 from tools.audio.openai_audio_tts import OpenAIAudioTTS
 from tools.audio.openai_tts import OpenAITTS
 from tools.audio.piper_tts import PiperTTS
@@ -75,6 +76,97 @@ class TestPiperTTS:
         tool = PiperTTS()
         assert "text_to_speech" in tool.capabilities
         assert "offline_generation" in tool.capabilities
+
+
+class TestGoogleTTS:
+    def test_identity(self):
+        tool = GoogleTTS()
+        info = tool.get_info()
+        assert info["name"] == "google_tts"
+        assert info["tier"] == "voice"
+        assert info["capability"] == "tts"
+        assert info["provider"] == "google_tts"
+
+    def test_gemini_prompt_model_supported(self):
+        tool = GoogleTTS()
+        assert tool._resolve_model({"model": "gemini"}) == "gemini-3.1-flash-tts-preview"
+        tool._validate_inputs({"text": "Hello", "model": "gemini-3.1-flash-tts-preview"})
+        assert "style_prompting" in tool.capabilities
+
+    def test_status_uses_gemini_api_key(self, monkeypatch):
+        monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+        tool = GoogleTTS()
+        assert tool.get_status().value == "available"
+
+    def test_gemini_api_payload_combines_prompt_and_voice(self):
+        tool = GoogleTTS()
+        payload = tool._payload(
+            {
+                "text": "Have a wonderful day!",
+                "prompt": "Say cheerfully:",
+            },
+            voice_name="Kore",
+        )
+        text = payload["contents"][0]["parts"][0]["text"]
+        assert text.startswith("Say cheerfully:")
+        assert text.endswith("Have a wonderful day!")
+        assert payload["generationConfig"]["responseModalities"] == ["AUDIO"]
+        assert (
+            payload["generationConfig"]["speechConfig"]["voiceConfig"]
+            ["prebuiltVoiceConfig"]["voiceName"]
+            == "Kore"
+        )
+
+    def test_multi_speaker_payload_maps_speakers_to_voices(self):
+        tool = GoogleTTS()
+        payload = tool._payload(
+            {
+                "text": "Host: Welcome.\nGuest: Thanks.",
+                "speaker_voice_configs": [
+                    {"speaker": "Host", "voice": "Kore"},
+                    {"speaker": "Guest", "voice": "Puck"},
+                ],
+            },
+            voice_name="Kore",
+        )
+        configs = (
+            payload["generationConfig"]["speechConfig"]["multiSpeakerVoiceConfig"]
+            ["speakerVoiceConfigs"]
+        )
+        assert configs[0]["speaker"] == "Host"
+        assert configs[1]["voiceConfig"]["prebuiltVoiceConfig"]["voiceName"] == "Puck"
+
+    def test_rejects_more_than_two_speakers(self):
+        tool = GoogleTTS()
+        with pytest.raises(ValueError, match="at most two speakers"):
+            tool._validate_inputs(
+                {
+                    "text": "Dialogue",
+                    "speaker_voice_configs": [
+                        {"speaker": "A", "voice": "Kore"},
+                        {"speaker": "B", "voice": "Puck"},
+                        {"speaker": "C", "voice": "Aoede"},
+                    ],
+                }
+            )
+
+    def test_extract_gemini_audio_accepts_inline_data(self):
+        payload = {
+            "candidates": [
+                {
+                    "content": {
+                        "parts": [
+                            {
+                                "inlineData": {
+                                    "data": "aGVsbG8=",
+                                }
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+        assert GoogleTTS._extract_audio(payload) == b"hello"
 
 
 class TestMiniMaxTTS:
@@ -129,15 +221,19 @@ class TestNewToolsRegistry:
         reg = ToolRegistry()
         reg.register(DoubaoTTS())
         reg.register(ElevenLabsTTS())
+        reg.register(GoogleTTS())
+        reg.register(MiniMaxTTS())
         reg.register(OpenAIAudioTTS())
         reg.register(OpenAITTS())
         reg.register(PiperTTS())
         voice_tools = reg.get_by_tier(ToolTier.VOICE)
-        assert len(voice_tools) == 5
+        assert len(voice_tools) == 7
         names = {t.name for t in voice_tools}
         assert names == {
             "doubao_tts",
             "elevenlabs_tts",
+            "google_tts",
+            "minimax_tts",
             "openai_audio_tts",
             "openai_tts",
             "piper_tts",
@@ -158,6 +254,8 @@ class TestCapabilityMetadata:
         reg = ToolRegistry()
         reg.register(DoubaoTTS())
         reg.register(ElevenLabsTTS())
+        reg.register(GoogleTTS())
+        reg.register(MiniMaxTTS())
         reg.register(OpenAIAudioTTS())
         reg.register(OpenAITTS())
         reg.register(PiperTTS())
@@ -165,6 +263,8 @@ class TestCapabilityMetadata:
         assert {tool.name for tool in reg.get_by_capability("tts")} == {
             "doubao_tts",
             "elevenlabs_tts",
+            "google_tts",
+            "minimax_tts",
             "openai_audio_tts",
             "openai_tts",
             "piper_tts",
@@ -172,6 +272,8 @@ class TestCapabilityMetadata:
         }
         assert {tool.name for tool in reg.get_by_provider("doubao")} == {"doubao_tts"}
         assert {tool.name for tool in reg.get_by_provider("elevenlabs")} == {"elevenlabs_tts"}
+        assert {tool.name for tool in reg.get_by_provider("google_tts")} == {"google_tts"}
+        assert {tool.name for tool in reg.get_by_provider("minimax")} == {"minimax_tts"}
         assert {tool.name for tool in reg.get_by_provider("openai_audio")} == {"openai_audio_tts"}
 
     def test_registry_catalog_views(self):
