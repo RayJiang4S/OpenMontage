@@ -76,7 +76,12 @@ links the matching catalog entry to `final_package_review.html`.
 
 - `catalog.json`: machine-readable final video library.
 - `catalog.html`: local browser page with search, source filters, date-range
-  filters, video preview players, package review links, and file references.
+  filters, video preview players, package review links, speed labels, and file
+  references.
+
+Speed labels are read from `playback_speed` when the final package manifest
+provides it. If it is absent, the catalog infers common derived-version names
+such as `1p2x` or `1.2x`; standard package entries fall back to `1.0x`.
 
 The HTML view defaults to standard package entries because those represent
 approved deliverables. Legacy records remain available through the source

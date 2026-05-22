@@ -12,6 +12,11 @@
     "project_id": { "type": "string" },
     "variant_id": { "type": "string" },
     "channel": { "type": "string" },
+    "playback_speed": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "description": "Optional playback speed multiplier for derived speed variants, such as 1.0 or 1.2."
+    },
     "cover_direction": {
       "type": "object",
       "description": "Copied from the script artifact when available, so the final cover can be traced back to the early creative intent.",
@@ -29,6 +34,11 @@
         "source_path": { "type": "string" },
         "package_path": { "type": "string" },
         "duration_seconds": { "type": ["number", "null"] },
+        "playback_speed": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "description": "Optional playback speed multiplier when it belongs specifically to the packaged video file."
+        },
         "source_duration_seconds": { "type": ["number", "null"] },
         "duration_delta_seconds": { "type": ["number", "null"] },
         "cover_first_frame": { "type": "boolean" },
