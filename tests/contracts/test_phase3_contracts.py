@@ -26,10 +26,13 @@ from styles.playbook_loader import load_playbook, list_playbooks, validate_playb
 from tools.base_tool import ToolTier
 from tools.audio.music_gen import MusicGen
 from tools.tool_registry import ToolRegistry
+from tools.audio.doubao_tts import DoubaoTTS
 from tools.audio.elevenlabs_tts import ElevenLabsTTS
 from tools.audio.google_tts import GoogleTTS
+from tools.audio.openai_audio_tts import OpenAIAudioTTS
 from tools.audio.openai_tts import OpenAITTS
 from tools.audio.piper_tts import PiperTTS
+from tools.audio.minimax_tts import MiniMaxTTS
 from tools.audio.tts_selector import TTSSelector
 
 
@@ -166,6 +169,28 @@ class TestGoogleTTS:
         assert GoogleTTS._extract_audio(payload) == b"hello"
 
 
+class TestMiniMaxTTS:
+    def test_identity(self):
+        tool = MiniMaxTTS()
+        info = tool.get_info()
+        assert info["name"] == "minimax_tts"
+        assert info["tier"] == "voice"
+        assert info["capability"] == "tts"
+        assert info["provider"] == "minimax"
+
+    def test_cost_estimate(self):
+        tool = MiniMaxTTS()
+        cost = tool.estimate_cost({"text": "Hello world, this is a test."})
+        assert cost > 0
+        assert cost < 0.01
+
+    def test_capabilities(self):
+        tool = MiniMaxTTS()
+        assert "text_to_speech" in tool.capabilities
+        assert "voice_selection" in tool.capabilities
+        assert "timestamp_alignment" in tool.capabilities
+
+
 class TestMusicGen:
     def test_identity(self):
         tool = MusicGen()
@@ -194,13 +219,25 @@ class TestNewToolsRegistry:
 
     def test_voice_tier_tools(self):
         reg = ToolRegistry()
+        reg.register(DoubaoTTS())
         reg.register(ElevenLabsTTS())
+        reg.register(GoogleTTS())
+        reg.register(MiniMaxTTS())
+        reg.register(OpenAIAudioTTS())
         reg.register(OpenAITTS())
         reg.register(PiperTTS())
         voice_tools = reg.get_by_tier(ToolTier.VOICE)
-        assert len(voice_tools) == 3
+        assert len(voice_tools) == 7
         names = {t.name for t in voice_tools}
-        assert names == {"elevenlabs_tts", "openai_tts", "piper_tts"}
+        assert names == {
+            "doubao_tts",
+            "elevenlabs_tts",
+            "google_tts",
+            "minimax_tts",
+            "openai_audio_tts",
+            "openai_tts",
+            "piper_tts",
+        }
 
 
 class TestCapabilityMetadata:
@@ -215,17 +252,29 @@ class TestCapabilityMetadata:
 
     def test_provider_specific_tts_tools_register(self):
         reg = ToolRegistry()
+        reg.register(DoubaoTTS())
         reg.register(ElevenLabsTTS())
+        reg.register(GoogleTTS())
+        reg.register(MiniMaxTTS())
+        reg.register(OpenAIAudioTTS())
         reg.register(OpenAITTS())
         reg.register(PiperTTS())
         reg.register(TTSSelector())
         assert {tool.name for tool in reg.get_by_capability("tts")} == {
+            "doubao_tts",
             "elevenlabs_tts",
+            "google_tts",
+            "minimax_tts",
+            "openai_audio_tts",
             "openai_tts",
             "piper_tts",
             "tts_selector",
         }
+        assert {tool.name for tool in reg.get_by_provider("doubao")} == {"doubao_tts"}
         assert {tool.name for tool in reg.get_by_provider("elevenlabs")} == {"elevenlabs_tts"}
+        assert {tool.name for tool in reg.get_by_provider("google_tts")} == {"google_tts"}
+        assert {tool.name for tool in reg.get_by_provider("minimax")} == {"minimax_tts"}
+        assert {tool.name for tool in reg.get_by_provider("openai_audio")} == {"openai_audio_tts"}
 
     def test_registry_catalog_views(self):
         reg = ToolRegistry()
@@ -235,7 +284,7 @@ class TestCapabilityMetadata:
         catalog = reg.capability_catalog()
         assert "tts" in catalog
         providers = {item["provider"] for item in catalog["tts"] if item["provider"] != "selector"}
-        assert providers == {"doubao", "elevenlabs", "google_tts", "openai", "piper"}
+        assert providers == {"doubao", "elevenlabs", "google_tts", "minimax", "openai_audio", "openai", "piper"}
 
 
 # ---- Animated Explainer Pipeline ----

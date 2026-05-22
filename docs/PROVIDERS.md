@@ -42,6 +42,9 @@ OPENAI_API_KEY=              # OpenAI TTS + DALL-E 3 images
 XAI_API_KEY=                 # xAI Grok image generation/editing + Grok video generation
 DOUBAO_SPEECH_API_KEY=       # Volcengine Doubao Speech TTS (strong Mandarin narration)
 DOUBAO_SPEECH_VOICE_TYPE=    # Default Doubao speaker/voice type
+MINIMAX_API_KEY=             # MiniMax Speech TTS, voice cloning, and voice design
+MINIMAX_TTS_VOICE_ID=        # Default MiniMax system/designed/cloned voice ID
+MINIMAX_TTS_MODEL=           # Optional MiniMax TTS model override
 
 # MULTI-MODEL GATEWAY (one key, 6+ tools)
 FAL_KEY=                     # FLUX, Recraft, Kling, Veo, MiniMax video
@@ -208,6 +211,52 @@ Doubao Speech 2.0 is billed by character package or usage in Volcengine. OpenMon
 
 ---
 
+### MiniMax Speech - Expressive Multilingual TTS
+
+> **Expressive multilingual narration.** MiniMax Speech is useful for short and medium voiceover segments, cloned voices, and subtitle-aware narration across Chinese, English, and other supported languages.
+
+**Tools unlocked:** `minimax_tts`
+**Env vars:** `MINIMAX_API_KEY`, `MINIMAX_TTS_VOICE_ID`, `MINIMAX_TTS_MODEL`
+
+#### Setup
+
+1. Open the MiniMax platform and create an API key.
+2. Choose a system voice from the MiniMax voice list, or use a designed/cloned voice ID.
+3. Add to `.env`:
+   ```bash
+   MINIMAX_API_KEY=your-api-key
+   MINIMAX_TTS_VOICE_ID=your-voice-id
+   MINIMAX_TTS_MODEL=speech-2.8-hd
+   ```
+
+#### API Notes
+
+OpenMontage uses the synchronous HTTP T2A API:
+
+```text
+POST https://api.minimax.io/v1/t2a_v2
+Authorization: Bearer ${MINIMAX_API_KEY}
+```
+
+By default, OpenMontage requests MiniMax `hex` audio output, decodes it into `output_path`, and saves the full response JSON next to the audio file. Set `output_format: "url"` when you want MiniMax to return a temporary audio URL for OpenMontage to download.
+
+#### What It Is Best For
+
+- Expressive multilingual narration with current MiniMax Speech models
+- Short and medium narration segments under the HTTP T2A 10,000-character limit
+- Custom, designed, or cloned MiniMax voices
+- Sentence or word subtitle metadata for caption alignment
+
+#### Pacing
+
+Start with `speed: 1.0`, `pitch: 0`, and `language_boost: "auto"`. For Mandarin explainers, compare short samples before changing speed or pitch so the approved voice direction stays consistent.
+
+#### Pricing
+
+MiniMax Speech billing varies by plan and model. OpenMontage estimates cost from character count and prefers provider-returned `usage_characters` when available.
+
+---
+
 ### Google — Gemini API TTS + Imagen
 
 > **Latest Google TTS only.** OpenMontage uses Gemini API TTS, defaulting to `gemini-3.1-flash-tts-preview`. Imagen 4 uses the same Google API key family.
@@ -284,7 +333,7 @@ Use Gemini prebuilt voice names such as:
 
 > **Solid all-rounder.** DALL-E 3 handles complex multi-element compositions well. TTS is fast and affordable.
 
-**Tools unlocked:** `openai_tts`, `openai_image`
+**Tools unlocked:** `openai_tts`, `openai_audio_tts`, `openai_image`
 **Env var:** `OPENAI_API_KEY`
 
 #### Setup
@@ -302,6 +351,22 @@ Use Gemini prebuilt voice names such as:
 | tts-1 | $15.00 |
 | tts-1-hd | $30.00 |
 | gpt-4o-mini-tts | $12.00 |
+
+The Speech API supports 13 built-in voices: `alloy`, `ash`, `ballad`,
+`coral`, `echo`, `fable`, `nova`, `onyx`, `sage`, `shimmer`, `verse`,
+`marin`, and `cedar`. For best quality, start with `marin` or `cedar`.
+Custom voice IDs are also supported for eligible accounts.
+
+#### Audio-output TTS
+
+`openai_audio_tts` uses audio-capable chat models such as `gpt-audio-1.5`
+through Chat Completions audio output. Use it when you want to audition the
+newer OpenAI audio model family for expressive narration. Use `openai_tts`
+when you need the dedicated Speech API path.
+
+Supported audio-output formats: `wav`, `mp3`, `flac`, `opus`, `pcm16`.
+This route does not return word-level timestamps; use transcription/alignment
+before subtitle timing.
 
 #### Image Pricing
 
@@ -731,7 +796,7 @@ These tools require only FFmpeg or Python packages — no GPU, no API key.
 | **Google** | `GOOGLE_API_KEY` | `google_tts`, `google_imagen` | Free tier + paid |
 | **ElevenLabs** | `ELEVENLABS_API_KEY` | `elevenlabs_tts`, `music_gen` | Free tier + paid |
 | **fal.ai** | `FAL_KEY` | `flux_image`, `recraft_image`, `kling_video`, `veo_video`, `minimax_video` | Pay-as-you-go |
-| **OpenAI** | `OPENAI_API_KEY` | `openai_tts`, `openai_image` | Paid only |
+| **OpenAI** | `OPENAI_API_KEY` | `openai_tts`, `openai_audio_tts`, `openai_image` | Paid only |
 | **xAI** | `XAI_API_KEY` | `grok_image`, `grok_video` | Paid only |
 | **Runway** | `RUNWAY_API_KEY` | `runway_video` | Free trial + paid |
 | **Higgsfield** | `HIGGSFIELD_API_KEY` + `HIGGSFIELD_API_SECRET` | `higgsfield_video` | Subscription ($15-84/mo) |
