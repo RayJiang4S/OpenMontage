@@ -133,6 +133,42 @@ def display_warning(value: str) -> str:
     return labels.get(value, value)
 
 
+def normalize_playback_speed(value: Any) -> float | None:
+    if value is None or value == "":
+        return None
+    if isinstance(value, (int, float)):
+        return round(float(value), 3) if value > 0 else None
+    text = str(value).strip().lower()
+    if text.endswith("x"):
+        text = text[:-1]
+    text = text.replace("p", ".")
+    try:
+        speed = float(text)
+    except ValueError:
+        return None
+    return round(speed, 3) if speed > 0 else None
+
+
+def infer_playback_speed(*values: str | None, default: float | None = None) -> float | None:
+    for value in values:
+        if not value:
+            continue
+        text = str(value).lower()
+        match = re.search(r"(?<![a-z0-9])([0-9]+)p([0-9]+)x(?![a-z0-9])", text)
+        if match:
+            return normalize_playback_speed(f"{match.group(1)}.{match.group(2)}")
+        match = re.search(r"(?<![a-z0-9])([0-9]+(?:\.[0-9]+)?)x(?![a-z0-9])", text)
+        if match:
+            return normalize_playback_speed(match.group(1))
+    return default
+
+
+def playback_speed_label(value: float | None) -> str | None:
+    if value is None:
+        return None
+    return f"{value:.2f}".rstrip("0").rstrip(".") + "x"
+
+
 def display_reference_label(value: str | None) -> str:
     labels = {
         "Legacy manifest": "旧 MANIFEST",
@@ -226,6 +262,8 @@ class CatalogEntry:
     package_review_path: str | None
     package_dir: str | None
     duration_seconds: float | None
+    playback_speed: float | None
+    playback_speed_label: str | None
     use_case: str | None
     tags: list[str]
     privacy_notes: list[str]
@@ -252,6 +290,18 @@ def entry_from_package_manifest(path: Path, review_pages: dict[str, str] | None 
     project_id = manifest.get("project_id") or project_id_from_path(path)
     variant_id = manifest.get("variant_id") or path.parent.name
     channel = manifest.get("channel") or "default"
+    playback_speed = (
+        normalize_playback_speed(manifest.get("playback_speed"))
+        or normalize_playback_speed(manifest.get("speed"))
+        or normalize_playback_speed(video.get("playback_speed"))
+        or normalize_playback_speed(video.get("speed"))
+        or infer_playback_speed(
+            variant_id,
+            str(video_path),
+            str(path.parent),
+            default=1.0,
+        )
+    )
     references = []
     for item in manifest.get("references") or []:
         references.append(
@@ -279,6 +329,8 @@ def entry_from_package_manifest(path: Path, review_pages: dict[str, str] | None 
         package_review_path=(review_pages or {}).get(str(path.resolve())),
         package_dir=str(path.parent),
         duration_seconds=video.get("duration_seconds") or probe_duration(video_path),
+        playback_speed=playback_speed,
+        playback_speed_label=playback_speed_label(playback_speed),
         use_case=None,
         tags=[channel, "standard-package"],
         privacy_notes=[],
@@ -300,6 +352,7 @@ def entry_from_legacy_final_dir(path: Path) -> CatalogEntry | None:
     cover_path = covers[0] if covers else None
     project_id = project_id_from_path(path)
     variant_id = info.get("variant_id") or path.name
+    playback_speed = infer_playback_speed(str(variant_id), str(video_path), str(path))
     title = info.get("title") or project_id.replace("-", " ")
     warnings = ["legacy final folder; create a final_package_manifest.json when practical"]
     return CatalogEntry(
@@ -316,6 +369,8 @@ def entry_from_legacy_final_dir(path: Path) -> CatalogEntry | None:
         package_review_path=None,
         package_dir=str(path),
         duration_seconds=probe_duration(video_path),
+        playback_speed=playback_speed,
+        playback_speed_label=playback_speed_label(playback_speed),
         use_case=info.get("use_case"),
         tags=["legacy", "needs-package-manifest"],
         privacy_notes=[],
@@ -377,6 +432,7 @@ def entry_from_legacy_archive(path: Path) -> list[CatalogEntry]:
         if not video_path.exists() or video_path.suffix.lower() not in {".mp4", ".mov", ".webm"}:
             continue
         variant_id = slug(label)
+        playback_speed = infer_playback_speed(label, render_path, str(video_path))
         entries.append(
             CatalogEntry(
                 id=entry_id(project_id, variant_id, "legacy-archive", str(video_path)),
@@ -392,6 +448,8 @@ def entry_from_legacy_archive(path: Path) -> list[CatalogEntry]:
                 package_review_path=None,
                 package_dir=str(path.parent),
                 duration_seconds=probe_duration(video_path),
+                playback_speed=playback_speed,
+                playback_speed_label=playback_speed_label(playback_speed),
                 use_case=purpose,
                 tags=["legacy", "final-archive", "needs-package-manifest"],
                 privacy_notes=[],
@@ -551,6 +609,7 @@ def render_html(catalog: dict[str, Any], output_path: Path) -> None:
             if item.get("duration_seconds")
             else "未知"
         )
+        speed_value = html.escape(item.get("playback_speed_label") or "未知")
         cards.append(
             f"""
 <article class="card" data-project="{html.escape(item.get('project_id') or '')}"
@@ -569,6 +628,7 @@ def render_html(catalog: dict[str, Any], output_path: Path) -> None:
       <div class="meta-item"><span>版本</span><strong>{html.escape(item.get('variant_id') or '')}</strong></div>
       <div class="meta-item"><span>投放场景</span><strong>{html.escape(display_channel(item.get('channel')))}</strong></div>
       <div class="meta-item"><span>时长</span><strong>{duration_value}</strong></div>
+      <div class="meta-item"><span>速度</span><strong>{speed_value}</strong></div>
       <div class="meta-item"><span>生成时间</span><strong>{html.escape(created_display)}</strong></div>
     </div>
     <p>{html.escape(item.get('use_case') or '')}</p>
@@ -639,7 +699,7 @@ input[type="date"] {{ min-width: 160px; }}
 video {{ width: 100%; border-radius: 14px; border: 1px solid rgba(255,255,255,.12); background: #020712; }}
 .eyebrow {{ color: var(--cyan); font-weight: 800; text-transform: uppercase; font-size: 12px; letter-spacing: .08em; }}
 h2 {{ margin: 6px 0 12px; font-size: 24px; letter-spacing: 0; }}
-.meta {{ display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin: 10px 0 12px; }}
+.meta {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin: 10px 0 12px; }}
 .meta-item {{
   border: 1px solid rgba(255,255,255,.08);
   border-radius: 12px;

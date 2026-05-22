@@ -27,7 +27,7 @@ def test_final_video_catalog_builds_html_and_links_review_page(tmp_path: Path):
                 "version": "1.0",
                 "created_at": "2026-05-18T08:03:48+00:00",
                 "project_id": "demo-project",
-                "variant_id": "final-v1",
+                "variant_id": "final-v1-1p2x",
                 "channel": "skill_landing_page",
                 "package_dir": str(package_dir),
                 "video": {
@@ -65,11 +65,14 @@ def test_final_video_catalog_builds_html_and_links_review_page(tmp_path: Path):
     assert catalog["entry_count"] == 1
     entry = catalog["entries"][0]
     assert entry["project_id"] == "demo-project"
+    assert entry["playback_speed"] == 1.2
+    assert entry["playback_speed_label"] == "1.2x"
     assert entry["package_review_path"] == str(review_html)
     assert entry["created_at"] == "2026-05-18T08:03:48+00:00"
     html = html_path.read_text(encoding="utf-8")
     assert "打开交付包页" in html
     assert "Skill 安装页" in html
+    assert "1.2x" in html
     assert "2026-05-18" in html
 
 
