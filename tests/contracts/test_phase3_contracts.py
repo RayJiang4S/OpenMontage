@@ -24,6 +24,7 @@ from lib.checkpoint import STAGES
 from schemas.artifacts import list_schemas
 from styles.playbook_loader import load_playbook, list_playbooks, validate_playbook
 from tools.base_tool import ToolTier
+from tools.audio.azure_tts import AzureTTS
 from tools.audio.music_gen import MusicGen
 from tools.tool_registry import ToolRegistry
 from tools.audio.doubao_tts import DoubaoTTS
@@ -219,6 +220,7 @@ class TestNewToolsRegistry:
 
     def test_voice_tier_tools(self):
         reg = ToolRegistry()
+        reg.register(AzureTTS())
         reg.register(DoubaoTTS())
         reg.register(ElevenLabsTTS())
         reg.register(GoogleTTS())
@@ -227,9 +229,10 @@ class TestNewToolsRegistry:
         reg.register(OpenAITTS())
         reg.register(PiperTTS())
         voice_tools = reg.get_by_tier(ToolTier.VOICE)
-        assert len(voice_tools) == 7
+        assert len(voice_tools) == 8
         names = {t.name for t in voice_tools}
         assert names == {
+            "azure_tts",
             "doubao_tts",
             "elevenlabs_tts",
             "google_tts",
@@ -252,6 +255,7 @@ class TestCapabilityMetadata:
 
     def test_provider_specific_tts_tools_register(self):
         reg = ToolRegistry()
+        reg.register(AzureTTS())
         reg.register(DoubaoTTS())
         reg.register(ElevenLabsTTS())
         reg.register(GoogleTTS())
@@ -261,6 +265,7 @@ class TestCapabilityMetadata:
         reg.register(PiperTTS())
         reg.register(TTSSelector())
         assert {tool.name for tool in reg.get_by_capability("tts")} == {
+            "azure_tts",
             "doubao_tts",
             "elevenlabs_tts",
             "google_tts",
@@ -270,6 +275,7 @@ class TestCapabilityMetadata:
             "piper_tts",
             "tts_selector",
         }
+        assert {tool.name for tool in reg.get_by_provider("azure")} == {"azure_tts"}
         assert {tool.name for tool in reg.get_by_provider("doubao")} == {"doubao_tts"}
         assert {tool.name for tool in reg.get_by_provider("elevenlabs")} == {"elevenlabs_tts"}
         assert {tool.name for tool in reg.get_by_provider("google_tts")} == {"google_tts"}
@@ -284,7 +290,16 @@ class TestCapabilityMetadata:
         catalog = reg.capability_catalog()
         assert "tts" in catalog
         providers = {item["provider"] for item in catalog["tts"] if item["provider"] != "selector"}
-        assert providers == {"doubao", "elevenlabs", "google_tts", "minimax", "openai_audio", "openai", "piper"}
+        assert providers == {
+            "azure",
+            "doubao",
+            "elevenlabs",
+            "google_tts",
+            "minimax",
+            "openai_audio",
+            "openai",
+            "piper",
+        }
 
 
 # ---- Animated Explainer Pipeline ----

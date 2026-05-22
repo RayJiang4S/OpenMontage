@@ -177,6 +177,9 @@ GOOGLE_API_KEY=your-key        # Google Imagen images + Gemini API TTS
 GEMINI_API_KEY=your-key        # Optional Gemini API TTS alias
 DOUBAO_SPEECH_API_KEY=your-key # Doubao Speech Mandarin TTS
 MINIMAX_API_KEY=your-key       # MiniMax Speech TTS, voice cloning, voice design
+AZURE_SPEECH_KEY=your-key      # Azure AI Speech TTS
+AZURE_SPEECH_REGION=eastus     # Azure Speech region
+# Optional for Azure word-boundary timing: pip install azure-cognitiveservices-speech
 
 # More video providers:
 HEYGEN_API_KEY=your-key        # HeyGen — VEO, Sora, Runway, Kling via single gateway
@@ -449,10 +452,11 @@ Each tool declares which Layer 3 skills it relies on. The agent reads Layer 1 to
 </details>
 
 <details>
-<summary><strong>Text-to-Speech — 7 providers</strong></summary>
+<summary><strong>Text-to-Speech — 8 providers</strong></summary>
 
 | Provider | Type | Notes |
 |----------|------|-------|
+| **Azure AI Speech** | Cloud API | SSML-directed enterprise TTS, strong multilingual and Mandarin coverage |
 | **ElevenLabs** | Cloud API | Premium voice quality |
 | **Google TTS** | Cloud API | Latest Gemini API TTS prompt control |
 | **OpenAI Speech API** | Cloud API | Fast, affordable, instruction-directed with `gpt-4o-mini-tts` |

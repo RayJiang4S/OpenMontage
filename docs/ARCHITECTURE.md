@@ -152,7 +152,7 @@ Selectors route based on: user preference when explicitly set, then scored ranki
 
 **Analysis (4):** transcriber (WhisperX), scene_detect, frame_sampler, video_understand (CLIP/BLIP-2)
 
-**Audio (11):** elevenlabs_tts, google_tts, openai_audio_tts, openai_tts, doubao_tts, minimax_tts, piper_tts, tts_selector, music_gen, audio_mixer, audio_enhance
+**Audio (12):** azure_tts, elevenlabs_tts, google_tts, openai_audio_tts, openai_tts, doubao_tts, minimax_tts, piper_tts, tts_selector, music_gen, audio_mixer, audio_enhance
 
 **Avatar (2):** talking_head (SadTalker/MuseTalk), lip_sync (Wav2Lip)
 
@@ -384,6 +384,7 @@ All config is validated via Pydantic models in `lib/config_model.py`.
 |----------|---------|---------|
 | `ELEVENLABS_API_KEY` | elevenlabs_tts, music_gen | TTS, music, sound effects |
 | `OPENAI_API_KEY` | openai_tts, openai_audio_tts, openai_image | TTS fallback, audio-output narration, DALL-E 3 |
+| `AZURE_SPEECH_KEY` + `AZURE_SPEECH_REGION` | azure_tts | Azure AI Speech TTS; optional `azure-cognitiveservices-speech` package enables word-boundary timing metadata |
 | `XAI_API_KEY` | grok_image, grok_video | Grok image editing/generation, Grok video generation |
 | `DOUBAO_SPEECH_API_KEY` | doubao_tts | Volcengine Doubao Speech TTS |
 | `MINIMAX_API_KEY` | minimax_tts | MiniMax Speech TTS |
