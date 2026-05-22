@@ -166,6 +166,8 @@ def infer_playback_speed(*values: str | None, default: float | None = None) -> f
 def playback_speed_label(value: float | None) -> str | None:
     if value is None:
         return None
+    if float(value).is_integer():
+        return f"{value:.1f}x"
     return f"{value:.2f}".rstrip("0").rstrip(".") + "x"
 
 

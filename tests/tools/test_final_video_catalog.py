@@ -76,6 +76,48 @@ def test_final_video_catalog_builds_html_and_links_review_page(tmp_path: Path):
     assert "2026-05-18" in html
 
 
+def test_final_video_catalog_labels_standard_speed_as_one_decimal(tmp_path: Path):
+    package_dir = tmp_path / "projects" / "demo" / "final-package"
+    video = package_dir / "video" / "final.mp4"
+    manifest_path = package_dir / "final_package_manifest.json"
+
+    video.parent.mkdir(parents=True)
+    video.write_bytes(b"fake video")
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "version": "1.0",
+                "created_at": "2026-05-18T08:03:48+00:00",
+                "project_id": "demo-project",
+                "variant_id": "final-v1",
+                "channel": "skill_landing_page",
+                "package_dir": str(package_dir),
+                "video": {
+                    "package_path": str(video),
+                    "duration_seconds": 12.5,
+                },
+                "files": [],
+                "references": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = FinalVideoCatalog().execute(
+        {
+            "scan_roots": [str(tmp_path / "projects")],
+            "output_dir": str(tmp_path / "catalog"),
+        }
+    )
+
+    assert result.success, result.error
+    catalog = json.loads(Path(result.data["catalog_path"]).read_text(encoding="utf-8"))
+    entry = catalog["entries"][0]
+    assert entry["playback_speed"] == 1.0
+    assert entry["playback_speed_label"] == "1.0x"
+    assert "1.0x" in Path(result.data["html_path"]).read_text(encoding="utf-8")
+
+
 def test_final_video_catalog_is_discoverable():
     registry = ToolRegistry()
     registry.discover("tools")
