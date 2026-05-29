@@ -85,6 +85,7 @@ Key capability families to look for in the output:
 | Subtitle Sync | `core/subtitle-sync.md` | Subtitle timing and alignment | `remotion-best-practices` |
 | TTS Segment Lab | `core/tts-segment-lab.md` | Narration audition before final TTS generation | `text-to-speech` |
 | Visual Timing QA | `core/visual-timing-qa.md` | Post-render cue timing review for narration-led visuals | `ffmpeg` |
+| Pre-render Narration Sync Gate | `core/pre-render-narration-sync-gate.md` | Locked narration vs captions, screen text, and planned visual cues before rendering | — |
 | Color Grading | `core/color-grading.md` | FFmpeg color profiles, LUT workflow, accessibility | `ffmpeg` |
 
 ## Creative Skills
