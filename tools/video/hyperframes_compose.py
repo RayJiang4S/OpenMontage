@@ -1069,6 +1069,8 @@ class HyperFramesCompose(BaseTool):
         provides a functional starting skeleton.
         """
         vars_css = "\n      ".join(f"{k}: {v};" for k, v in css_vars.items())
+        body_font = self._css_font_family(css_vars.get("--font-body", "Inter"))
+        heading_font = self._css_font_family(css_vars.get("--font-heading", "Inter"))
 
         clip_html: list[str] = []
         visibility_tweens: list[str] = []
@@ -1123,7 +1125,7 @@ class HyperFramesCompose(BaseTool):
     :root {{
       {vars_css}
     }}
-    body {{ margin: 0; background: var(--color-bg); color: var(--color-fg); font-family: var(--font-body); }}
+    body {{ margin: 0; background: var(--color-bg); color: var(--color-fg); font-family: {body_font}; }}
     #root {{
       position: relative;
       width: {width}px;
@@ -1133,7 +1135,7 @@ class HyperFramesCompose(BaseTool):
     .clip {{ position: absolute; inset: 0; opacity: 0; }}
     .clip.video-clip, .clip.image-clip {{ object-fit: cover; width: 100%; height: 100%; }}
     .clip.text-card {{ display: flex; align-items: center; justify-content: center; padding: 120px 160px; box-sizing: border-box; text-align: center; }}
-    .clip.text-card h1 {{ font-family: var(--font-heading); font-weight: 700; font-size: 96px; line-height: 1.1; margin: 0; color: var(--color-fg); }}
+    .clip.text-card h1 {{ font-family: {heading_font}; font-weight: 700; font-size: 96px; line-height: 1.1; margin: 0; color: var(--color-fg); }}
     .clip.text-card .subtitle {{ font-size: 36px; margin-top: 24px; color: var(--color-accent); }}
   </style>
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
@@ -1234,6 +1236,15 @@ class HyperFramesCompose(BaseTool):
             f'data-track-index="1"><h1>{placeholder}</h1></div>'
         )
         return html, None
+
+    @staticmethod
+    def _css_font_family(font_family: str) -> str:
+        """Return a lint-friendly CSS font-family list with concrete names."""
+        families = [part.strip().strip("\"'") for part in str(font_family).split(",") if part.strip()]
+        if not families:
+            families = ["Inter"]
+        quoted = [f'"{family}"' for family in families]
+        return ", ".join([*quoted, "system-ui", "sans-serif"])
 
     # ------------------------------------------------------------------
     # Utilities

@@ -37,9 +37,39 @@ save(audio, "voiceover.mp3")
 | `eleven_multilingual_v2` | Highest consistency | None | Stable, production-ready, 29 languages |
 | `eleven_flash_v2_5` | Good | `<break>`, `<phoneme>` | Fast, supports pause/pronunciation tags |
 | `eleven_turbo_v2_5` | Good | `<break>`, `<phoneme>` | Fastest latency |
-| `eleven_v3` | Most expressive | None | Alpha — unreliable, needs prompt engineering |
+| `eleven_v3` | Most expressive | Audio tags | Latest expressive model, 70+ languages, supports Text to Dialogue |
 
-**Choose:** multilingual_v2 for reliability, flash/turbo for SSML control, v3 for maximum expressiveness (expect retakes).
+**Choose:** multilingual_v2 for stable narration, flash/turbo for low latency and SSML control, v3 for emotionally expressive narration or multi-voice dialogue.
+
+### Eleven v3 Expressive Tags
+
+Use short inline audio tags when v3 needs performance direction:
+
+```text
+[confident] Welcome to the briefing.
+[whispers] This part should feel intimate.
+[excited] Now the feature gets interesting.
+```
+
+Keep tags sparse and intentional. For long production voiceovers, generate a short sample first, then lock the prompt and voice settings once the performance feels right.
+
+### Text to Dialogue
+
+Use Text to Dialogue for multi-voice conversational scenes instead of stitching many independent TTS calls. The OpenMontage `elevenlabs_tts` tool accepts:
+
+```python
+ElevenLabsTTS().execute({
+    "operation": "text_to_dialogue",
+    "dialogue_inputs": [
+        {"text": "Ready for the briefing?", "voice_id": "VOICE_A"},
+        {"text": "Yes. Keep it concise.", "voice_id": "VOICE_B"},
+    ],
+    "model_id": "eleven_v3",
+    "output_path": "dialogue.mp3",
+})
+```
+
+Stay within 10 unique voice IDs and keep dialogue batches compact; split longer scenes into logical sections if needed.
 
 ### Voice Settings by Style
 

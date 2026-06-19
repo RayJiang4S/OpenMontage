@@ -163,7 +163,9 @@ No subscription — pure pay-as-you-go, no minimum spend.
 | Pro | $99/mo | 500,000 | 96kbps audio, usage analytics |
 | Scale | $330/mo | 2,000,000 | Priority support |
 
-**Free tier:** 10,000 characters/month (roughly 2-3 minutes of narration). API access included. Music generation and sound effects also available on free tier with limited credits.
+**Free tier:** 10,000 characters/month (roughly 2-3 minutes of narration). API access included for TTS.
+
+**Music API note:** OpenMontage's `music_gen` uses ElevenLabs Music v2 by default (`model_id=music_v2`) and forces instrumental output for video beds unless overridden. ElevenLabs Music API access depends on account entitlement; during the Mac mini readiness check on 2026-06-19, the configured key worked for ElevenLabs TTS/Text-to-Dialogue but `/v1/music` returned 401, so music generation needs a paid/entitled ElevenLabs key before use. Set `ELEVENLABS_MUSIC_API_ENABLED=false` to keep provider preflight from advertising Music as ready until the account is enabled.
 
 ---
 
@@ -389,6 +391,14 @@ OpenMontage `google_tts` defaults to:
 
 Gemini API returns 24 kHz PCM audio. OpenMontage writes a WAV file by default.
 
+Model guidance:
+
+| Model | OpenMontage use |
+|-------|-----------------|
+| `gemini-3.1-flash-tts-preview` | Default for new videos: latest Gemini TTS path, expressive tags, prompt steering, and two-speaker dialogue |
+| `gemini-2.5-pro-preview-tts` | Quality fallback for long-form or compatibility checks |
+| `gemini-2.5-flash-preview-tts` | Older low-latency fallback for compatibility checks |
+
 **For Imagen**, enable the Generative Language API:
 1. Visit [console.cloud.google.com/apis/library/generativelanguage.googleapis.com](https://console.cloud.google.com/apis/library/generativelanguage.googleapis.com)
 2. Click **Enable**
@@ -439,16 +449,40 @@ Available delivery presets:
 
 #### Gemini API TTS Voice Options
 
-Use Gemini prebuilt voice names such as:
+Use Gemini prebuilt voice names:
 
 | Voice | Character |
 |-------|-----------|
+| `Achernar` | Soft |
+| `Achird` | Friendly |
+| `Algenib` | Gravelly |
+| `Algieba` | Smooth |
+| `Alnilam` | Firm |
 | `Kore` | Firm |
 | `Charon` | Informative |
 | `Aoede` | Breezy |
 | `Puck` | Upbeat |
+| `Autonoe` | Bright |
+| `Callirrhoe` | Easy-going |
+| `Despina` | Smooth |
+| `Enceladus` | Breathy |
+| `Erinome` | Clear |
+| `Fenrir` | Excitable |
+| `Gacrux` | Mature |
+| `Iapetus` | Clear |
+| `Laomedeia` | Upbeat |
 | `Orus` | Firm |
 | `Leda` | Youthful |
+| `Pulcherrima` | Forward |
+| `Rasalgethi` | Informative |
+| `Sadachbia` | Lively |
+| `Sadaltager` | Knowledgeable |
+| `Schedar` | Even |
+| `Sulafat` | Warm |
+| `Umbriel` | Easy-going |
+| `Vindemiatrix` | Gentle |
+| `Zephyr` | Bright |
+| `Zubenelgenubi` | Casual |
 
 **Recommended voices:** Start with `Kore` for firm narration, `Charon` for informative explainers, `Aoede` for breezy friendly narration, and `Puck` for upbeat dialogue.
 
@@ -793,7 +827,7 @@ HyperFrames workspaces live under `projects/<project-name>/hyperframes/`. Final 
 
 **Tool:** `piper_tts`
 **Runtime:** CPU (no GPU needed)
-**Env var:** None
+**Env var:** Optional `PIPER_MODEL_PATH`, `PIPER_DATA_DIR`
 
 #### Setup
 
@@ -804,9 +838,12 @@ pip install piper-tts
 # Or download the binary from GitHub
 # https://github.com/rhasspy/piper/releases
 
-# Download a voice model (first run downloads automatically)
-piper --download-dir ~/.piper/models --model en_US-lessac-medium
+# Download a .onnx voice model, then point OpenMontage at it
+export PIPER_MODEL_PATH=/path/to/voice.onnx
 ```
+
+OpenMontage also detects project-local models under `projects/*/assets/voices/*.onnx`
+and uses `~/.cache/openmontage/piper` for Piper auxiliary resources by default.
 
 **Available voices:** ~30 English voices plus voices for German, French, Spanish, Italian, and other languages. Lower variety than cloud providers but completely free and offline.
 

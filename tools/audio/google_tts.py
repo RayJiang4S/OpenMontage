@@ -25,7 +25,7 @@ from tools.base_tool import (
 
 class GoogleTTS(BaseTool):
     name = "google_tts"
-    version = "0.4.0"
+    version = "0.5.0"
     tier = ToolTier.VOICE
     capability = "tts"
     provider = "google_tts"
@@ -47,6 +47,7 @@ class GoogleTTS(BaseTool):
         "text_to_speech",
         "voice_selection",
         "style_prompting",
+        "expressive_audio_tags",
         "multi_speaker",
         "gemini_api_tts",
         "delivery_presets",
@@ -59,6 +60,7 @@ class GoogleTTS(BaseTool):
         "native_audio": True,
         "ssml": False,
         "style_prompting": True,
+        "expressive_audio_tags": True,
         "gemini_api_key_auth": True,
         "multi_speaker": True,
         "delivery_presets": True,
@@ -67,6 +69,7 @@ class GoogleTTS(BaseTool):
     best_for = [
         "latest Gemini API TTS narration with API-key setup",
         "prompt-directed tone, pace, accent, and emotion",
+        "Gemini 3.1 expressive audio tags such as [whispering] or [excited]",
         "single-speaker or two-speaker dialogue audio",
     ]
     not_good_for = [
@@ -76,6 +79,50 @@ class GoogleTTS(BaseTool):
 
     DEFAULT_MODEL = "gemini-3.1-flash-tts-preview"
     DEFAULT_VOICE = "Kore"
+    MODEL_PROFILES = {
+        "gemini-3.1-flash-tts-preview": (
+            "Recommended default: latest low-latency Gemini TTS with natural output, "
+            "steerable prompts, expressive audio tags, and multi-speaker support."
+        ),
+        "gemini-2.5-pro-preview-tts": (
+            "Quality fallback for structured long-form workflows such as podcasts or audiobooks."
+        ),
+        "gemini-2.5-flash-preview-tts": (
+            "Older cost-efficient fallback for low-latency Gemini TTS compatibility checks."
+        ),
+    }
+    VOICE_OPTIONS = {
+        "Achernar": "Soft",
+        "Achird": "Friendly",
+        "Algenib": "Gravelly",
+        "Algieba": "Smooth",
+        "Alnilam": "Firm",
+        "Aoede": "Breezy",
+        "Autonoe": "Bright",
+        "Callirrhoe": "Easy-going",
+        "Charon": "Informative",
+        "Despina": "Smooth",
+        "Enceladus": "Breathy",
+        "Erinome": "Clear",
+        "Fenrir": "Excitable",
+        "Gacrux": "Mature",
+        "Iapetus": "Clear",
+        "Kore": "Firm",
+        "Laomedeia": "Upbeat",
+        "Leda": "Youthful",
+        "Orus": "Firm",
+        "Puck": "Upbeat",
+        "Pulcherrima": "Forward",
+        "Rasalgethi": "Informative",
+        "Sadachbia": "Lively",
+        "Sadaltager": "Knowledgeable",
+        "Schedar": "Even",
+        "Sulafat": "Warm",
+        "Umbriel": "Easy-going",
+        "Vindemiatrix": "Gentle",
+        "Zephyr": "Bright",
+        "Zubenelgenubi": "Casual",
+    }
     DELIVERY_PRESETS = {
         "technical_briefing": (
             "Deliver as a focused technical product briefing: confident, crisp, "
@@ -95,11 +142,7 @@ class GoogleTTS(BaseTool):
             "to follow, emphasizing the action words without sounding urgent."
         ),
     }
-    _MODELS = {
-        "gemini-3.1-flash-tts-preview",
-        "gemini-2.5-flash-preview-tts",
-        "gemini-2.5-pro-preview-tts",
-    }
+    _MODELS = set(MODEL_PROFILES)
 
     input_schema = {
         "type": "object",
@@ -112,6 +155,11 @@ class GoogleTTS(BaseTool):
             "prompt": {
                 "type": "string",
                 "description": "Natural-language direction for tone, pacing, accent, emotion, and delivery.",
+            },
+            "audio_tags": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Optional expressive inline tags for Gemini 3.1 TTS, e.g. [serious], [whispering], [excited]. Bare names are wrapped in brackets.",
             },
             "delivery_preset": {
                 "type": "string",
@@ -126,11 +174,13 @@ class GoogleTTS(BaseTool):
             "model": {
                 "type": "string",
                 "default": DEFAULT_MODEL,
-                "description": "Gemini TTS model.",
+                "enum": sorted(_MODELS),
+                "description": "Gemini TTS model. Default is the latest recommended 3.1 Flash TTS preview.",
             },
             "voice": {
                 "type": "string",
                 "default": DEFAULT_VOICE,
+                "enum": sorted(VOICE_OPTIONS),
                 "description": "Gemini prebuilt voice, e.g. Kore, Charon, Aoede, Puck.",
             },
             "speaker_voice_configs": {
@@ -141,7 +191,7 @@ class GoogleTTS(BaseTool):
                     "required": ["speaker", "voice"],
                     "properties": {
                         "speaker": {"type": "string"},
-                        "voice": {"type": "string"},
+                        "voice": {"type": "string", "enum": sorted(VOICE_OPTIONS)},
                     },
                 },
             },
@@ -157,6 +207,9 @@ class GoogleTTS(BaseTool):
             "provider": {"type": "string"},
             "model": {"type": "string"},
             "voice": {"type": "string"},
+            "audio_tags": {"type": "array", "items": {"type": "string"}},
+            "voice_tone": {"type": "string"},
+            "model_profile": {"type": "string"},
         },
     }
 
@@ -164,7 +217,7 @@ class GoogleTTS(BaseTool):
         cpu_cores=1, ram_mb=256, vram_mb=0, disk_mb=50, network_required=True
     )
     retry_policy = RetryPolicy(max_retries=2, retryable_errors=["rate_limit", "timeout"])
-    idempotency_key_fields = ["text", "prompt", "model", "voice", "speaker_voice_configs"]
+    idempotency_key_fields = ["text", "prompt", "audio_tags", "model", "voice", "speaker_voice_configs"]
     side_effects = ["writes WAV audio file to output_path", "calls Gemini API"]
     user_visible_verification = ["Listen to generated audio for natural speech quality and pacing"]
     quality_score = 0.9
@@ -201,7 +254,8 @@ class GoogleTTS(BaseTool):
 
         self._validate_inputs(inputs)
         model = self._resolve_model(inputs)
-        voice_name = inputs.get("voice") or self.DEFAULT_VOICE
+        voice_name = self._resolve_voice(inputs.get("voice"))
+        audio_tags = self._normalize_audio_tags(inputs.get("audio_tags"))
         output_path = Path(inputs.get("output_path", "google_tts.wav"))
 
         response = requests.post(
@@ -225,8 +279,11 @@ class GoogleTTS(BaseTool):
             data={
                 "provider": self.provider,
                 "model": model,
+                "model_profile": self.MODEL_PROFILES.get(model),
                 "voice": voice_name,
+                "voice_tone": self.VOICE_OPTIONS.get(voice_name),
                 "delivery_preset": inputs.get("delivery_preset"),
+                "audio_tags": audio_tags,
                 "duration_target_seconds": inputs.get("duration_target_seconds"),
                 "speaker_voice_configs": inputs.get("speaker_voice_configs"),
                 "text_length": len(inputs.get("text", "")),
@@ -285,11 +342,52 @@ class GoogleTTS(BaseTool):
 
     @classmethod
     def _prompted_text(cls, inputs: dict[str, Any]) -> str:
-        text = inputs["text"]
+        text = cls._tagged_text(inputs)
         directions = cls._prompt_directions(inputs)
         if not directions:
             return text
         return f"{' '.join(directions)}\n\n{text}"
+
+    @classmethod
+    def _tagged_text(cls, inputs: dict[str, Any]) -> str:
+        tags = cls._normalize_audio_tags(inputs.get("audio_tags"))
+        if not tags:
+            return inputs["text"]
+        return f"{' '.join(tags)} {inputs['text']}"
+
+    @staticmethod
+    def _normalize_audio_tags(audio_tags: Any) -> list[str]:
+        if not audio_tags:
+            return []
+        if isinstance(audio_tags, str):
+            raw_tags = [audio_tags]
+        elif isinstance(audio_tags, list):
+            raw_tags = audio_tags
+        else:
+            raise ValueError("audio_tags must be a string or list of strings.")
+
+        if len(raw_tags) > 8:
+            raise ValueError("audio_tags supports at most 8 tags.")
+
+        normalized: list[str] = []
+        for tag in raw_tags:
+            if not isinstance(tag, str):
+                raise ValueError("audio_tags entries must be strings.")
+            clean = tag.strip()
+            if not clean:
+                continue
+            if "\n" in clean or "\r" in clean:
+                raise ValueError("audio_tags entries must be single-line strings.")
+            if len(clean) > 48:
+                raise ValueError("audio_tags entries must be 48 characters or fewer.")
+            if clean.startswith("[") or clean.endswith("]"):
+                if not (clean.startswith("[") and clean.endswith("]")):
+                    raise ValueError("audio_tags entries must use balanced square brackets.")
+                clean = clean[1:-1].strip()
+            if not clean:
+                continue
+            normalized.append(f"[{clean}]")
+        return normalized
 
     @classmethod
     def _prompt_directions(cls, inputs: dict[str, Any]) -> list[str]:
@@ -354,18 +452,33 @@ class GoogleTTS(BaseTool):
         if duration_target is not None and float(duration_target) <= 0:
             raise ValueError("duration_target_seconds must be greater than 0.")
 
+        self._normalize_audio_tags(inputs.get("audio_tags"))
+
         speakers = inputs.get("speaker_voice_configs") or []
         if len(speakers) > 2:
             raise ValueError("Gemini TTS supports at most two speakers.")
         for item in speakers:
             if not item.get("speaker") or not item.get("voice"):
                 raise ValueError("Each speaker_voice_configs item needs speaker and voice.")
+            self._resolve_voice(item["voice"])
+
+        self._resolve_voice(inputs.get("voice"))
 
     def _resolve_model(self, inputs: dict[str, Any]) -> str:
         model = inputs.get("model") or self.DEFAULT_MODEL
         if model == "gemini":
             return self.DEFAULT_MODEL
         return model
+
+    @classmethod
+    def _resolve_voice(cls, voice: Any) -> str:
+        voice_name = voice or cls.DEFAULT_VOICE
+        if not isinstance(voice_name, str):
+            raise ValueError("Gemini TTS voice must be a string.")
+        if voice_name not in cls.VOICE_OPTIONS:
+            allowed = ", ".join(sorted(cls.VOICE_OPTIONS))
+            raise ValueError(f"Unsupported Gemini TTS voice: {voice_name}. Expected one of: {allowed}")
+        return voice_name
 
     @staticmethod
     def _audio_duration(path: Path) -> float | None:

@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Any
@@ -33,13 +35,12 @@ class PiperTTS(BaseTool):
     determinism = Determinism.DETERMINISTIC
     runtime = ToolRuntime.LOCAL
 
-    dependencies = ["cmd:piper"]
+    dependencies = ["python:piper-tts"]
     install_instructions = (
         "Install Piper TTS:\n"
         "  pip install piper-tts\n"
-        "Or download from https://github.com/rhasspy/piper/releases\n"
-        "Then download a voice model:\n"
-        "  piper --download-dir ~/.piper/models --model en_US-lessac-medium"
+        "Then download a .onnx voice model and set PIPER_MODEL_PATH to it, "
+        "or pass model=/path/to/voice.onnx."
     )
     agent_skills = ["text-to-speech"]
 
@@ -69,7 +70,8 @@ class PiperTTS(BaseTool):
             "text": {"type": "string"},
             "model": {
                 "type": "string",
-                "default": "en_US-lessac-medium",
+                "default": "auto",
+                "description": "Path or basename of a Piper .onnx model. Use auto to pick PIPER_MODEL_PATH or a local project voice.",
             },
             "speaker_id": {
                 "type": "integer",
@@ -96,12 +98,12 @@ class PiperTTS(BaseTool):
     user_visible_verification = ["Listen to generated audio for intelligibility"]
 
     def get_status(self) -> ToolStatus:
-        if shutil.which("piper"):
-            return ToolStatus.AVAILABLE
+        if not self._runtime_command():
+            return ToolStatus.UNAVAILABLE
         try:
-            import piper  # noqa: F401
+            self._resolve_model({"model": "auto"})
             return ToolStatus.AVAILABLE
-        except ImportError:
+        except FileNotFoundError:
             return ToolStatus.UNAVAILABLE
 
     def estimate_cost(self, inputs: dict[str, Any]) -> float:
@@ -121,22 +123,29 @@ class PiperTTS(BaseTool):
         return result
 
     def _generate(self, inputs: dict[str, Any]) -> ToolResult:
+        runtime = self._runtime_command()
+        if runtime is None:
+            raise FileNotFoundError("piper runtime not found. Install piper-tts in the active environment.")
+
+        model_path = self._resolve_model(inputs)
         output_path = Path(inputs.get("output_path", "tts_output.wav"))
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         proc = subprocess.run(
-            [
-                "piper",
-                "--model", inputs.get("model", "en_US-lessac-medium"),
+            runtime
+            + [
+                "--model", str(model_path),
                 "--speaker", str(inputs.get("speaker_id", 0)),
                 "--length-scale", str(inputs.get("length_scale", 1.0)),
                 "--sentence-silence", str(inputs.get("sentence_silence", 0.3)),
                 "--output_file", str(output_path),
+                "--data-dir", str(self._data_dir()),
             ],
             input=inputs["text"],
             capture_output=True,
             text=True,
             timeout=300,
+            cwd=str(self._data_dir()),
         )
 
         if proc.returncode != 0:
@@ -148,12 +157,76 @@ class PiperTTS(BaseTool):
             success=True,
             data={
                 "provider": self.provider,
-                "model": inputs.get("model", "en_US-lessac-medium"),
+                "model": str(model_path),
                 "speaker_id": inputs.get("speaker_id", 0),
                 "text_length": len(inputs["text"]),
                 "output": str(output_path),
                 "format": "wav",
             },
             artifacts=[str(output_path)],
-            model=inputs.get("model", "en_US-lessac-medium"),
+            model=str(model_path),
         )
+
+    @staticmethod
+    def _runtime_command() -> list[str] | None:
+        binary = shutil.which("piper")
+        if binary:
+            return [binary]
+        try:
+            import piper  # noqa: F401
+        except ImportError:
+            return None
+        return [sys.executable, "-m", "piper"]
+
+    @classmethod
+    def _resolve_model(cls, inputs: dict[str, Any]) -> Path:
+        model = inputs.get("model") or "auto"
+        candidates = cls._candidate_model_paths(str(model))
+        for candidate in candidates:
+            if candidate.exists() and candidate.suffix == ".onnx":
+                return candidate
+        searched = ", ".join(str(path) for path in candidates[:8])
+        raise FileNotFoundError(
+            "Piper voice model not found. Set PIPER_MODEL_PATH or pass model=/path/to/voice.onnx. "
+            f"Searched: {searched}"
+        )
+
+    @staticmethod
+    def _candidate_model_paths(model: str) -> list[Path]:
+        repo_root = Path(__file__).resolve().parents[2]
+        paths: list[Path] = []
+
+        env_model = os.environ.get("PIPER_MODEL_PATH")
+        if env_model:
+            paths.append(Path(env_model).expanduser())
+
+        if model and model != "auto":
+            model_path = Path(model).expanduser()
+            paths.append(model_path)
+            if model_path.suffix != ".onnx":
+                paths.extend(
+                    [
+                        Path.home() / ".piper" / "models" / f"{model}.onnx",
+                        Path.home() / ".local" / "share" / "piper" / "models" / f"{model}.onnx",
+                        repo_root / "assets" / "voices" / f"{model}.onnx",
+                    ]
+                )
+
+        paths.extend(sorted((repo_root / "projects").glob("*/assets/voices/*.onnx")))
+        paths.extend(sorted((Path.home() / ".piper" / "models").glob("*.onnx")))
+        paths.extend(sorted((Path.home() / ".local" / "share" / "piper" / "models").glob("*.onnx")))
+
+        unique: list[Path] = []
+        seen: set[str] = set()
+        for path in paths:
+            key = str(path)
+            if key not in seen:
+                unique.append(path)
+                seen.add(key)
+        return unique
+
+    @staticmethod
+    def _data_dir() -> Path:
+        data_dir = Path(os.environ.get("PIPER_DATA_DIR", "~/.cache/openmontage/piper")).expanduser()
+        data_dir.mkdir(parents=True, exist_ok=True)
+        return data_dir

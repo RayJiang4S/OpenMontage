@@ -10,7 +10,7 @@ import {
 } from "remotion";
 
 export interface ProductRevealProps {
-  productImage: string;
+  productImage?: string;
   productName: string;
   price: string;
   tagline: string;
@@ -28,6 +28,7 @@ export const ProductReveal: React.FC<ProductRevealProps> = ({
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+  const hasProductImage = Boolean(productImage);
 
   // === PHASE 1: Product image scales in with glow (0-1.5s) ===
   const imgScale = spring({
@@ -145,14 +146,18 @@ export const ProductReveal: React.FC<ProductRevealProps> = ({
             border: "1px solid rgba(255,255,255,0.08)",
           }}
         >
-          <Img
-            src={staticFile(productImage)}
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-            }}
-          />
+          {hasProductImage ? (
+            <Img
+              src={staticFile(productImage as string)}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+            />
+          ) : (
+            <ProductPlaceholder accentColor={accentColor} />
+          )}
         </div>
         {/* Reflection */}
         <div
@@ -171,15 +176,19 @@ export const ProductReveal: React.FC<ProductRevealProps> = ({
               "linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, transparent 100%)",
           }}
         >
-          <Img
-            src={staticFile(productImage)}
-            style={{
-              width: "100%",
-              height: 260,
-              objectFit: "cover",
-              objectPosition: "bottom",
-            }}
-          />
+          {hasProductImage ? (
+            <Img
+              src={staticFile(productImage as string)}
+              style={{
+                width: "100%",
+                height: 260,
+                objectFit: "cover",
+                objectPosition: "bottom",
+              }}
+            />
+          ) : (
+            <ProductPlaceholder accentColor={accentColor} reflected />
+          )}
         </div>
       </div>
 
@@ -314,5 +323,64 @@ export const ProductReveal: React.FC<ProductRevealProps> = ({
         </div>
       </div>
     </AbsoluteFill>
+  );
+};
+
+const ProductPlaceholder: React.FC<{
+  accentColor: string;
+  reflected?: boolean;
+}> = ({ accentColor, reflected = false }) => {
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: reflected ? 260 : "100%",
+        background:
+          "linear-gradient(145deg, rgba(255,255,255,0.16), rgba(255,255,255,0.03) 45%, rgba(0,0,0,0.22))",
+        position: "relative",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <div
+        style={{
+          width: 150,
+          height: 190,
+          borderRadius: 36,
+          background:
+            "linear-gradient(160deg, #101827 0%, #172338 52%, #05070d 100%)",
+          border: "1px solid rgba(255,255,255,0.18)",
+          boxShadow: `inset 0 1px 12px rgba(255,255,255,0.12), 0 0 34px ${accentColor}44`,
+          position: "relative",
+          opacity: reflected ? 0.7 : 1,
+        }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            top: 18,
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: 48,
+            height: 6,
+            borderRadius: 999,
+            background: "rgba(255,255,255,0.28)",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            right: 20,
+            bottom: 28,
+            width: 36,
+            height: 36,
+            borderRadius: "50%",
+            background: accentColor,
+            boxShadow: `0 0 28px ${accentColor}`,
+          }}
+        />
+      </div>
+    </div>
   );
 };

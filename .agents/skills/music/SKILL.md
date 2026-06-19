@@ -23,7 +23,9 @@ client = ElevenLabs()
 
 audio = client.music.compose(
     prompt="A chill lo-fi hip hop beat with jazzy piano chords",
-    music_length_ms=30000
+    music_length_ms=30000,
+    model_id="music_v2",
+    force_instrumental=True,
 )
 
 with open("output.mp3", "wb") as f:
@@ -41,6 +43,8 @@ const client = new ElevenLabsClient();
 const audio = await client.music.compose({
   prompt: "A chill lo-fi hip hop beat with jazzy piano chords",
   musicLengthMs: 30000,
+  modelId: "music_v2",
+  forceInstrumental: true,
 });
 audio.pipe(createWriteStream("output.mp3"));
 ```
@@ -50,8 +54,10 @@ audio.pipe(createWriteStream("output.mp3"));
 ```bash
 curl -X POST "https://api.elevenlabs.io/v1/music" \
   -H "xi-api-key: $ELEVENLABS_API_KEY" -H "Content-Type: application/json" \
-  -d '{"prompt": "A chill lo-fi beat", "music_length_ms": 30000}' --output output.mp3
+  -d '{"prompt": "A chill lo-fi beat", "music_length_ms": 30000, "model_id": "music_v2", "force_instrumental": true}' --output output.mp3
 ```
+
+OpenMontage defaults new `music_gen` calls to `music_v2` and `force_instrumental=true`, which is the safest setting for background beds under narration. Music API access is entitlement-gated; if TTS works but `/v1/music` returns 401, set `ELEVENLABS_MUSIC_API_ENABLED=false` and use a paid/entitled ElevenLabs key rather than rotating the working TTS key blindly.
 
 ## Methods
 

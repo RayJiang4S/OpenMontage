@@ -27,7 +27,7 @@ from tools.base_tool import (
 
 class MusicGen(BaseTool):
     name = "music_gen"
-    version = "0.1.0"
+    version = "0.2.0"
     tier = ToolTier.GENERATE
     capability = "music_generation"
     provider = "elevenlabs"
@@ -48,6 +48,8 @@ class MusicGen(BaseTool):
     capabilities = [
         "generate_background_music",
         "generate_sfx",
+        "music_v2",
+        "instrumental_control",
     ]
 
     input_schema = {
@@ -68,6 +70,22 @@ class MusicGen(BaseTool):
                     "Omitting this defaults to 60s which may not match your video."
                 ),
             },
+            "model_id": {
+                "type": "string",
+                "enum": ["music_v2", "music_v1"],
+                "default": "music_v2",
+                "description": "ElevenLabs music model. music_v2 is the current recommended default.",
+            },
+            "force_instrumental": {
+                "type": "boolean",
+                "default": True,
+                "description": "Guarantee no vocals when generating from a prompt. Recommended for video background beds.",
+            },
+            "output_format": {
+                "type": "string",
+                "default": "auto",
+                "description": "ElevenLabs output_format query value. auto chooses the best format for the selected model.",
+            },
             "output_path": {"type": "string"},
         },
     }
@@ -76,13 +94,26 @@ class MusicGen(BaseTool):
         cpu_cores=1, ram_mb=256, vram_mb=0, disk_mb=50, network_required=True
     )
     retry_policy = RetryPolicy(max_retries=2, retryable_errors=["rate_limit", "timeout"])
-    idempotency_key_fields = ["prompt", "duration_seconds"]
+    idempotency_key_fields = ["prompt", "duration_seconds", "model_id", "force_instrumental"]
     side_effects = ["writes audio file to output_path", "calls ElevenLabs API"]
     user_visible_verification = [
         "Listen to generated music for mood and quality",
     ]
 
+    @staticmethod
+    def _music_api_disabled() -> bool:
+        enabled = os.environ.get("ELEVENLABS_MUSIC_API_ENABLED")
+        return enabled is not None and enabled.strip().lower() in {
+            "0",
+            "false",
+            "no",
+            "off",
+            "disabled",
+        }
+
     def get_status(self) -> ToolStatus:
+        if self._music_api_disabled():
+            return ToolStatus.UNAVAILABLE
         if os.environ.get("ELEVENLABS_API_KEY"):
             return ToolStatus.AVAILABLE
         return ToolStatus.UNAVAILABLE
@@ -106,6 +137,15 @@ class MusicGen(BaseTool):
                 success=False,
                 error="No ElevenLabs API key. " + self.install_instructions,
             )
+        if self._music_api_disabled():
+            return ToolResult(
+                success=False,
+                error=(
+                    "ElevenLabs Music API is disabled by "
+                    "ELEVENLABS_MUSIC_API_ENABLED=false. Remove or set this "
+                    "flag to true after the account has Music API entitlement."
+                ),
+            )
 
         start = time.time()
 
@@ -115,7 +155,8 @@ class MusicGen(BaseTool):
             return ToolResult(success=False, error=f"Music generation failed: {e}")
 
         result.duration_seconds = round(time.time() - start, 2)
-        result.cost_usd = self.estimate_cost(inputs)
+        if result.success:
+            result.cost_usd = self.estimate_cost(inputs)
         return result
 
     def _generate(self, inputs: dict[str, Any], api_key: str) -> ToolResult:
@@ -147,14 +188,22 @@ class MusicGen(BaseTool):
         payload = {
             "prompt": prompt,
             "music_length_ms": int(duration * 1000),
+            "model_id": inputs.get("model_id", "music_v2"),
+            "force_instrumental": inputs.get("force_instrumental", True),
         }
+        output_format = inputs.get("output_format", "auto")
 
         response = requests.post(
-            url, headers=headers, json=payload, timeout=180
+            url,
+            headers=headers,
+            json=payload,
+            params={"output_format": output_format},
+            timeout=180,
         )
         response.raise_for_status()
 
-        output_path = Path(inputs.get("output_path", "music_output.mp3"))
+        ext = "mp3" if output_format == "auto" or output_format.startswith("mp3") else "wav"
+        output_path = Path(inputs.get("output_path", f"music_output.{ext}"))
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_bytes(response.content)
 
@@ -164,8 +213,12 @@ class MusicGen(BaseTool):
                 "provider": "elevenlabs",
                 "prompt": prompt,
                 "duration_seconds": duration,
+                "model": inputs.get("model_id", "music_v2"),
+                "force_instrumental": inputs.get("force_instrumental", True),
+                "output_format": output_format,
                 "output": str(output_path),
-                "format": "mp3",
+                "format": ext,
             },
             artifacts=[str(output_path)],
+            model=inputs.get("model_id", "music_v2"),
         )

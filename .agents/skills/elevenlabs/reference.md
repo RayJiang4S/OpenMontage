@@ -14,9 +14,42 @@ client = ElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY"))
 | Model ID | Description | Languages | Latency |
 |----------|-------------|-----------|---------|
 | `eleven_flash_v2_5` | Ultra-low latency streaming | 32 | ~75ms |
-| `eleven_multilingual_v2` | Highest quality | 32 | Standard |
+| `eleven_multilingual_v2` | Stable production narration | 29+ | Standard |
 | `eleven_turbo_v2_5` | Fast, good quality | 32 | Low |
-| `eleven_v3` | Best emotional range (alpha) | 32+ | Higher |
+| `eleven_v3` | Latest expressive model, audio tags, Text to Dialogue | 70+ | Higher |
+
+## Eleven v3 Audio Tags
+
+Eleven v3 can interpret short inline performance tags such as:
+
+```text
+[excited] The demo is finally ready.
+[whispers] This should feel close and private.
+[serious] Here is the operational risk.
+```
+
+Use tags only where the delivery really needs direction. Excess tags can make the performance less predictable.
+
+## Text to Dialogue
+
+Endpoint: `POST /v1/text-to-dialogue`
+
+Request shape:
+
+```json
+{
+  "inputs": [
+    {"text": "Ready for the briefing?", "voice_id": "VOICE_A"},
+    {"text": "Yes. Keep it concise.", "voice_id": "VOICE_B"}
+  ],
+  "model_id": "eleven_v3"
+}
+```
+
+Operational guardrails:
+- Up to 10 unique voice IDs per request.
+- Keep a dialogue request around 2000 total characters or less.
+- Use `eleven_v3` when the dialogue needs expressive delivery.
 
 ## Voice Settings
 

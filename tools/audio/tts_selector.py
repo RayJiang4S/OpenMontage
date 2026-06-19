@@ -47,7 +47,17 @@ class TTSSelector(BaseTool):
             },
             "model_id": {
                 "type": "string",
-                "description": "TTS model to use (e.g. eleven_multilingual_v2). Passed through to provider.",
+                "description": "TTS model to use (e.g. eleven_multilingual_v2, eleven_v3, gpt-4o-mini-tts). Passed through to provider.",
+            },
+            "dialogue_inputs": {
+                "type": "array",
+                "description": "Provider-specific dialogue turns, e.g. ElevenLabs Text to Dialogue entries with text and voice_id.",
+                "items": {"type": "object"},
+            },
+            "audio_tags": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Provider-specific expressive audio tags, e.g. Gemini 3.1 or Eleven v3 inline tags.",
             },
             "stability": {
                 "type": "number", "minimum": 0, "maximum": 1,
@@ -60,6 +70,22 @@ class TTSSelector(BaseTool):
             "style": {
                 "type": "number", "minimum": 0, "maximum": 1,
                 "description": "Style exaggeration (ElevenLabs). Higher = more expressive.",
+            },
+            "speed": {
+                "type": "number", "minimum": 0.5, "maximum": 2.0,
+                "description": "Provider-specific speaking speed multiplier where supported.",
+            },
+            "use_speaker_boost": {
+                "type": "boolean",
+                "description": "Provider-specific speaker boost flag where supported.",
+            },
+            "settings": {
+                "type": "object",
+                "description": "Provider-specific advanced settings object.",
+            },
+            "seed": {
+                "type": "integer",
+                "description": "Provider-specific generation seed where supported.",
             },
             "output_format": {
                 "type": "string",
@@ -85,9 +111,9 @@ class TTSSelector(BaseTool):
             },
             "operation": {
                 "type": "string",
-                "enum": ["generate", "rank"],
+                "enum": ["generate", "rank", "text_to_dialogue"],
                 "default": "generate",
-                "description": "Operation mode. 'rank' returns scored provider rankings without generating.",
+                "description": "Operation mode. 'rank' returns scored provider rankings; provider-specific values such as text_to_dialogue are passed through.",
             },
             "output_path": {"type": "string"},
         },

@@ -62,4 +62,4 @@ curl -X POST "https://api.elevenlabs.io/v1/music" \
 
 Or use the `setup-api-key` skill for guided setup.
 
-**Note:** Music generation requires a paid ElevenLabs plan.
+**Note:** Music generation requires a paid/entitled ElevenLabs plan. A key can work for TTS while still returning 401 on `/v1/music` when Music API access is not enabled.

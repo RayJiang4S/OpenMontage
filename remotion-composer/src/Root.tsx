@@ -235,7 +235,6 @@ export const Root: React.FC = () => {
         width={1280}
         height={720}
         defaultProps={{
-          productImage: "airnothing/product.png",
           productName: "AirNothing Pro Max Ultra",
           price: "Starting at $999",
           tagline: "Nothing included.",
@@ -251,7 +250,6 @@ export const Root: React.FC = () => {
         width={720}
         height={1280}
         defaultProps={{
-          productImage: "airnothing/product.png",
           productName: "AirNothing Pro Max Ultra",
           price: "Starting at $999",
           tagline: "Nothing included.",

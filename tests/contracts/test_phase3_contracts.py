@@ -57,6 +57,8 @@ class TestElevenLabsTTS:
     def test_capabilities(self):
         tool = ElevenLabsTTS()
         assert "text_to_speech" in tool.capabilities
+        assert "text_to_dialogue" in tool.capabilities
+        assert "expressive_audio_tags" in tool.capabilities
         assert "voice_selection" in tool.capabilities
 
 
@@ -93,6 +95,11 @@ class TestGoogleTTS:
         assert tool._resolve_model({"model": "gemini"}) == "gemini-3.1-flash-tts-preview"
         tool._validate_inputs({"text": "Hello", "model": "gemini-3.1-flash-tts-preview"})
         assert "style_prompting" in tool.capabilities
+        assert tool._resolve_voice(None) == "Kore"
+        assert tool.VOICE_OPTIONS["Kore"] == "Firm"
+        assert len(tool.VOICE_OPTIONS) == 30
+        assert tool.input_schema["properties"]["model"]["enum"] == sorted(tool._MODELS)
+        assert "Kore" in tool.input_schema["properties"]["voice"]["enum"]
 
     def test_status_uses_gemini_api_key(self, monkeypatch):
         monkeypatch.setenv("GEMINI_API_KEY", "test-key")
@@ -117,6 +124,29 @@ class TestGoogleTTS:
             ["prebuiltVoiceConfig"]["voiceName"]
             == "Kore"
         )
+
+    def test_audio_tags_are_inserted_before_spoken_text(self):
+        tool = GoogleTTS()
+        payload = tool._payload(
+            {
+                "text": "系统已经准备好。",
+                "prompt": "Use calm Mandarin narration.",
+                "audio_tags": ["serious", "[confident]"],
+            },
+            voice_name="Kore",
+        )
+        text = payload["contents"][0]["parts"][0]["text"]
+        assert text.endswith("[serious] [confident] 系统已经准备好。")
+
+    def test_rejects_invalid_audio_tags(self):
+        tool = GoogleTTS()
+        with pytest.raises(ValueError, match="audio_tags"):
+            tool._validate_inputs({"text": "Hello", "audio_tags": ["[broken"]})
+
+    def test_rejects_unknown_voice(self):
+        tool = GoogleTTS()
+        with pytest.raises(ValueError, match="voice"):
+            tool._validate_inputs({"text": "Hello", "voice": "NotARealGeminiVoice"})
 
     def test_delivery_preset_and_duration_target_become_prompt_guidance(self):
         tool = GoogleTTS()
@@ -235,6 +265,69 @@ class TestMusicGen:
     def test_capabilities(self):
         tool = MusicGen()
         assert "generate_background_music" in tool.capabilities
+        assert "music_v2" in tool.capabilities
+        assert "instrumental_control" in tool.capabilities
+
+    def test_status_can_disable_known_unentitled_music_api(self, monkeypatch):
+        monkeypatch.setenv("ELEVENLABS_API_KEY", "test-key")
+        monkeypatch.setenv("ELEVENLABS_MUSIC_API_ENABLED", "false")
+
+        result = MusicGen().execute({"prompt": "ambient piano", "duration_seconds": 3})
+
+        assert MusicGen().get_status().value == "unavailable"
+        assert result.success is False
+        assert "ELEVENLABS_MUSIC_API_ENABLED=false" in result.error
+
+    def test_execute_requires_duration_without_cost_crash(self, monkeypatch):
+        monkeypatch.setenv("ELEVENLABS_API_KEY", "test-key")
+        monkeypatch.delenv("ELEVENLABS_MUSIC_API_ENABLED", raising=False)
+
+        result = MusicGen().execute({"prompt": "ambient piano"})
+
+        assert result.success is False
+        assert "duration_seconds is required" in result.error
+
+    def test_execute_posts_music_v2_payload(self, monkeypatch, tmp_path):
+        import requests
+
+        captured = {}
+
+        class FakeResponse:
+            content = b"mp3-bytes"
+
+            def raise_for_status(self):
+                return None
+
+        def fake_post(url, **kwargs):
+            captured["url"] = url
+            captured.update(kwargs)
+            return FakeResponse()
+
+        monkeypatch.setenv("ELEVENLABS_API_KEY", "test-key")
+        monkeypatch.delenv("ELEVENLABS_MUSIC_API_ENABLED", raising=False)
+        monkeypatch.setattr(requests, "post", fake_post)
+
+        output = tmp_path / "bed.mp3"
+        result = MusicGen().execute(
+            {
+                "prompt": "calm documentary bed with soft piano",
+                "duration_seconds": 3,
+                "model_id": "music_v2",
+                "force_instrumental": True,
+                "output_format": "mp3_48000_192",
+                "output_path": str(output),
+            }
+        )
+
+        assert result.success is True
+        assert output.read_bytes() == b"mp3-bytes"
+        assert captured["url"] == "https://api.elevenlabs.io/v1/music"
+        assert captured["json"]["model_id"] == "music_v2"
+        assert captured["json"]["force_instrumental"] is True
+        assert captured["json"]["music_length_ms"] == 3000
+        assert captured["params"] == {"output_format": "mp3_48000_192"}
+        assert result.data["model"] == "music_v2"
+        assert result.data["format"] == "mp3"
 
 
 class TestNewToolsRegistry:
