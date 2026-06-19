@@ -424,6 +424,7 @@ for i, scene in enumerate(scene_plan["scenes"]):
 
 edit_decisions = {
     "version": "1.0",
+    "render_runtime": "ffmpeg",
     "cuts": [
         {
             "id": f"cut_{scene['id']}",
@@ -505,6 +506,8 @@ final_video = str(Path(OUT) / "e2e_final_output.mp4")
 compose_result = composer.execute({
     "operation": "compose",
     "edit_decisions": {
+        "version": "1.0",
+        "render_runtime": "ffmpeg",
         "cuts": [
             {"source": c["source"], "in_seconds": c["in_seconds"], "out_seconds": c["out_seconds"], "speed": c.get("speed", 1.0)}
             for c in edit_decisions["cuts"]

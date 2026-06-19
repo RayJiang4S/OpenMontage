@@ -15,8 +15,18 @@ export const HeroTitle: React.FC<HeroTitleProps> = ({ title, subtitle }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  // Staggered letter-by-letter spring
+  // Keep per-character animation while only allowing wrapping between words.
   const titleChars = title.split("");
+  let charOffset = 0;
+  const titleTokens = title.split(/(\s+)/).filter((token) => token.length > 0).map((token) => {
+    const start = charOffset;
+    charOffset += token.length;
+    return {
+      token,
+      start,
+      isWhitespace: /^\s+$/.test(token),
+    };
+  });
 
   return (
     <AbsoluteFill
@@ -41,27 +51,53 @@ export const HeroTitle: React.FC<HeroTitleProps> = ({ title, subtitle }) => {
             gap: 0,
           }}
         >
-          {titleChars.map((char, i) => {
-            const delay = i * 1.2;
-            const charSpring = spring({
-              frame: frame - delay,
-              fps,
-              config: { damping: 12, stiffness: 150 },
-            });
+          {titleTokens.map(({ token, start, isWhitespace }, tokenIndex) => {
+            if (isWhitespace) {
+              return (
+                <span
+                  key={`space-${tokenIndex}`}
+                  style={{
+                    display: "inline-block",
+                    whiteSpace: "pre",
+                    minWidth: `${Math.max(token.length, 1) * 0.3}em`,
+                  }}
+                >
+                  {token}
+                </span>
+              );
+            }
 
             return (
               <span
-                key={i}
+                key={`word-${tokenIndex}`}
                 style={{
-                  display: "inline-block",
-                  opacity: charSpring,
-                  transform: `translateY(${interpolate(charSpring, [0, 1], [30, 0])}px)`,
-                  color: i < 8 ? "#22D3EE" : "#F8FAFC", // Accent first word
-                  whiteSpace: char === " " ? "pre" : undefined,
-                  minWidth: char === " " ? "0.3em" : undefined,
+                  display: "inline-flex",
+                  whiteSpace: "nowrap",
                 }}
               >
-                {char}
+                {token.split("").map((char, charIndex) => {
+                  const i = start + charIndex;
+                  const delay = i * 1.2;
+                  const charSpring = spring({
+                    frame: frame - delay,
+                    fps,
+                    config: { damping: 12, stiffness: 150 },
+                  });
+
+                  return (
+                    <span
+                      key={`${i}-${char}`}
+                      style={{
+                        display: "inline-block",
+                        opacity: charSpring,
+                        transform: `translateY(${interpolate(charSpring, [0, 1], [30, 0])}px)`,
+                        color: i < 8 ? "#22D3EE" : "#F8FAFC", // Accent first word
+                      }}
+                    >
+                      {char}
+                    </span>
+                  );
+                })}
               </span>
             );
           })}
