@@ -183,6 +183,106 @@ def test_package_blocks_effectively_silent_audio_track(
     assert result.data["verification"]["passed"] is False
 
 
+def test_package_blocks_long_mid_video_silence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    video = tmp_path / "render.mp4"
+    video.write_bytes(b"fake video")
+
+    def fake_silence_check(self, video_path: Path, **kwargs):
+        return {
+            "status": "failed",
+            "threshold_db": kwargs["threshold_db"],
+            "min_duration_seconds": kwargs["min_duration_seconds"],
+            "warning_seconds": kwargs["warning_seconds"],
+            "fail_seconds": kwargs["fail_seconds"],
+            "ending_allowance_seconds": kwargs["ending_allowance_seconds"],
+            "has_audio_stream": True,
+            "segment_count": 1,
+            "mid_video_segment_count": 1,
+            "ending_segment_count": 0,
+            "longest_mid_video_silence_seconds": 5.105,
+            "longest_ending_silence_seconds": 0.0,
+            "segments": [{"start": 77.412, "end": 82.517, "duration": 5.105}],
+            "mid_video_segments": [{"start": 77.412, "end": 82.517, "duration": 5.105}],
+            "ending_segments": [],
+            "message": "Mid-video silence 5.105s exceeds fail threshold 3.000s.",
+        }
+
+    monkeypatch.setattr(PublishPackager, "_long_silence_check", fake_silence_check)
+
+    result = PublishPackager().execute(
+        {
+            "video_path": str(video),
+            "output_dir": str(tmp_path / "final"),
+        }
+    )
+
+    assert not result.success
+    assert "Mid-video silence" in result.error
+    assert result.data["verification"]["silence"]["status"] == "failed"
+    assert result.data["verification"]["passed"] is False
+
+
+def test_parse_silencedetect_segments():
+    stderr = """
+    [silencedetect @ 0x123] silence_start: 77.412
+    [silencedetect @ 0x123] silence_end: 82.517 | silence_duration: 5.105
+    [silencedetect @ 0x123] silence_start: 278.278
+    [silencedetect @ 0x123] silence_end: 280.597 | silence_duration: 2.3195
+    """
+
+    segments = PublishPackager._parse_silencedetect(stderr)
+
+    assert segments == [
+        {"start": 77.412, "end": 82.517, "duration": 5.105},
+        {"start": 278.278, "end": 280.597, "duration": 2.32},
+    ]
+
+
+def test_package_allows_ending_hold_silence(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    video = tmp_path / "render.mp4"
+    video.write_bytes(b"fake video")
+
+    def fake_silence_check(self, video_path: Path, **kwargs):
+        return {
+            "status": "passed",
+            "threshold_db": kwargs["threshold_db"],
+            "min_duration_seconds": kwargs["min_duration_seconds"],
+            "warning_seconds": kwargs["warning_seconds"],
+            "fail_seconds": kwargs["fail_seconds"],
+            "ending_allowance_seconds": kwargs["ending_allowance_seconds"],
+            "has_audio_stream": True,
+            "segment_count": 1,
+            "mid_video_segment_count": 0,
+            "ending_segment_count": 1,
+            "longest_mid_video_silence_seconds": 0.0,
+            "longest_ending_silence_seconds": 2.32,
+            "segments": [{"start": 278.278, "end": 280.597, "duration": 2.32}],
+            "mid_video_segments": [],
+            "ending_segments": [{"start": 278.278, "end": 280.597, "duration": 2.32}],
+        }
+
+    monkeypatch.setattr(PublishPackager, "_long_silence_check", fake_silence_check)
+
+    result = PublishPackager().execute(
+        {
+            "video_path": str(video),
+            "output_dir": str(tmp_path / "final"),
+        }
+    )
+
+    assert result.success, result.error
+    manifest = json.loads(
+        (tmp_path / "final" / "final_package_manifest.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    validate_artifact("final_package_manifest", manifest)
+    assert manifest["verification"]["silence"]["status"] == "passed"
+    assert manifest["verification"]["passed"] is True
+
+
 def test_package_requires_timing_qa_when_gate_enabled(tmp_path: Path):
     video = tmp_path / "render.mp4"
     video.write_bytes(b"fake video")

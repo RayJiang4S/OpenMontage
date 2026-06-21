@@ -101,6 +101,7 @@ class PublishPackager(BaseTool):
         "create_final_package_review_page",
         "verify_duration_delta",
         "verify_audio_is_not_silent",
+        "verify_mid_video_silence_gaps",
         "verify_timing_qa_reference",
     ]
     best_for = [
@@ -230,6 +231,31 @@ class PublishPackager(BaseTool):
                 "default": -60.0,
                 "description": "Minimum allowed mean volume when an audio stream exists. Lower values are treated as effectively silent.",
             },
+            "silence_threshold_db": {
+                "type": "number",
+                "default": -38.0,
+                "description": "Audio level below this dB threshold is considered silence for dead-air detection.",
+            },
+            "silence_min_duration_seconds": {
+                "type": "number",
+                "default": 0.45,
+                "description": "Minimum silence duration to include in the encoded-output silence scan.",
+            },
+            "max_mid_silence_warning_seconds": {
+                "type": "number",
+                "default": 2.0,
+                "description": "Warn when a non-ending silence segment exceeds this duration.",
+            },
+            "max_mid_silence_fail_seconds": {
+                "type": "number",
+                "default": 3.0,
+                "description": "Fail final packaging when a non-ending silence segment exceeds this duration.",
+            },
+            "ending_silence_allowance_seconds": {
+                "type": "number",
+                "default": 3.0,
+                "description": "Silence beginning within this many seconds of the video end is treated as an ending hold.",
+            },
             "require_timing_qa": {
                 "type": "boolean",
                 "default": False,
@@ -349,6 +375,11 @@ class PublishPackager(BaseTool):
         overwrite = bool(inputs.get("overwrite", False))
         tolerance = float(inputs.get("duration_tolerance_seconds", 0.15))
         audio_threshold = float(inputs.get("audio_min_mean_volume_db", -60.0))
+        silence_threshold = float(inputs.get("silence_threshold_db", -38.0))
+        silence_min_duration = float(inputs.get("silence_min_duration_seconds", 0.45))
+        max_mid_silence_warning = float(inputs.get("max_mid_silence_warning_seconds", 2.0))
+        max_mid_silence_fail = float(inputs.get("max_mid_silence_fail_seconds", 3.0))
+        ending_silence_allowance = float(inputs.get("ending_silence_allowance_seconds", 3.0))
         require_timing_qa = bool(inputs.get("require_timing_qa", False))
 
         if not video_path.exists():
@@ -419,6 +450,19 @@ class PublishPackager(BaseTool):
         audio_check = self._audio_loudness_check(video_out, audio_threshold)
         if audio_check.get("status") == "failed":
             warnings.append(str(audio_check.get("message") or "Audio loudness check failed"))
+        silence_check = self._long_silence_check(
+            video_out,
+            duration_seconds=package_duration,
+            threshold_db=silence_threshold,
+            min_duration_seconds=silence_min_duration,
+            warning_seconds=max_mid_silence_warning,
+            fail_seconds=max_mid_silence_fail,
+            ending_allowance_seconds=ending_silence_allowance,
+        )
+        if silence_check.get("status") == "failed":
+            warnings.append(str(silence_check.get("message") or "Long mid-video silence detected"))
+        elif silence_check.get("status") == "warning":
+            warnings.append(str(silence_check.get("message") or "Mid-video silence exceeds warning threshold"))
         timing_qa_check = self._timing_qa_check(
             files,
             references,
@@ -447,6 +491,7 @@ class PublishPackager(BaseTool):
                 "duration_tolerance_seconds": tolerance,
                 "audio_min_mean_volume_db": audio_threshold,
                 "audio": audio_check,
+                "silence": silence_check,
                 "timing_qa": timing_qa_check,
                 "passed": not warnings,
                 "warnings": warnings,
@@ -553,6 +598,15 @@ class PublishPackager(BaseTool):
                     f"- Audio check: `{audio.get('status')}`",
                     f"- Audio mean volume: `{audio.get('mean_volume_db')}`",
                     f"- Audio max volume: `{audio.get('max_volume_db')}`",
+                ]
+            )
+        silence = (manifest.get("verification") or {}).get("silence") or {}
+        if silence:
+            lines.extend(
+                [
+                    f"- Silence check: `{silence.get('status')}`",
+                    f"- Longest mid-video silence: `{silence.get('longest_mid_video_silence_seconds')}`",
+                    f"- Longest ending silence: `{silence.get('longest_ending_silence_seconds')}`",
                 ]
             )
         timing_qa = (manifest.get("verification") or {}).get("timing_qa") or {}
@@ -800,6 +854,8 @@ class PublishPackager(BaseTool):
                 "warnings": "警告",
                 "audio": "音频",
                 "audio_mean": "平均音量",
+                "silence": "静音间隙",
+                "silence_mid": "最长中段静音",
                 "timing_qa": "Timing QA",
                 "none": "无",
                 "no_cover_policy": "未记录封面策略。若脚本 JSON 提供 cover_policy 或 cover_direction，后续会在这里展示。",
@@ -837,6 +893,8 @@ class PublishPackager(BaseTool):
             "warnings": "Warnings",
             "audio": "Audio",
             "audio_mean": "Mean volume",
+            "silence": "Silence gaps",
+            "silence_mid": "Longest mid-video silence",
             "timing_qa": "Timing QA",
             "none": "None",
             "no_cover_policy": "No cover policy was recorded. Future packages will show cover_policy or cover_direction here when the script JSON provides it.",
@@ -965,13 +1023,21 @@ class PublishPackager(BaseTool):
         warnings = verification.get("warnings") or []
         warning_text = "; ".join(str(item) for item in warnings) or labels["none"]
         audio = verification.get("audio") or {}
+        silence = verification.get("silence") or {}
         timing_qa = verification.get("timing_qa") or {}
         audio_status = str(audio.get("status") or labels["none"])
+        silence_status = str(silence.get("status") or labels["none"])
         timing_qa_status = str(timing_qa.get("status") or labels["none"])
         mean_volume = audio.get("mean_volume_db")
         audio_mean_text = (
             f"{float(mean_volume):.1f} dB"
             if isinstance(mean_volume, (int, float))
+            else labels["none"]
+        )
+        longest_mid_silence = silence.get("longest_mid_video_silence_seconds")
+        silence_mid_text = (
+            f"{float(longest_mid_silence):.2f}s"
+            if isinstance(longest_mid_silence, (int, float))
             else labels["none"]
         )
         files_html = "\n".join(
@@ -1184,6 +1250,8 @@ button {{
           <div class="metric"><span>{escape(labels["cover_first_frame"])}</span><strong>{escape(self._bool_label(video.get("cover_first_frame"), labels))}</strong></div>
           <div class="metric"><span>{escape(labels["audio"])}</span><strong>{escape(audio_status)}</strong></div>
           <div class="metric"><span>{escape(labels["audio_mean"])}</span><strong>{escape(audio_mean_text)}</strong></div>
+          <div class="metric"><span>{escape(labels["silence"])}</span><strong>{escape(silence_status)}</strong></div>
+          <div class="metric"><span>{escape(labels["silence_mid"])}</span><strong>{escape(silence_mid_text)}</strong></div>
           <div class="metric"><span>{escape(labels["timing_qa"])}</span><strong>{escape(timing_qa_status)}</strong></div>
           <div class="metric warn"><span>{escape(labels["warnings"])}</span><strong>{escape(warning_text)}</strong></div>
         </div>
@@ -1364,6 +1432,136 @@ button {{
                 f"threshold {min_mean_volume_db} dB; the packaged video may be silent."
             )
         return check
+
+    def _long_silence_check(
+        self,
+        video_path: Path,
+        *,
+        duration_seconds: float | None,
+        threshold_db: float,
+        min_duration_seconds: float,
+        warning_seconds: float,
+        fail_seconds: float,
+        ending_allowance_seconds: float,
+    ) -> dict[str, Any]:
+        ffprobe = shutil.which("ffprobe")
+        ffmpeg = shutil.which("ffmpeg")
+        base = {
+            "threshold_db": threshold_db,
+            "min_duration_seconds": min_duration_seconds,
+            "warning_seconds": warning_seconds,
+            "fail_seconds": fail_seconds,
+            "ending_allowance_seconds": ending_allowance_seconds,
+        }
+        if not ffprobe or not ffmpeg:
+            return {**base, "status": "skipped", "reason": "ffprobe or ffmpeg not found"}
+
+        try:
+            probe = subprocess.run(
+                [
+                    ffprobe,
+                    "-v",
+                    "quiet",
+                    "-print_format",
+                    "json",
+                    "-select_streams",
+                    "a",
+                    "-show_streams",
+                    str(video_path),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            streams = json.loads(probe.stdout or "{}").get("streams") or []
+        except Exception:
+            return {**base, "status": "skipped", "reason": "audio stream probe failed"}
+        if not streams:
+            return {
+                **base,
+                "status": "skipped",
+                "reason": "no audio stream",
+                "has_audio_stream": False,
+            }
+
+        try:
+            result = subprocess.run(
+                [
+                    ffmpeg,
+                    "-hide_banner",
+                    "-nostats",
+                    "-i",
+                    str(video_path),
+                    "-af",
+                    f"silencedetect=n={threshold_db}dB:d={min_duration_seconds}",
+                    "-f",
+                    "null",
+                    "-",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=240,
+            )
+        except subprocess.TimeoutExpired:
+            return {
+                **base,
+                "status": "skipped",
+                "reason": "silencedetect timed out",
+                "has_audio_stream": True,
+            }
+
+        segments = self._parse_silencedetect(result.stderr or "")
+        mid_segments: list[dict[str, Any]] = []
+        ending_segments: list[dict[str, Any]] = []
+        for segment in segments:
+            if duration_seconds is not None and segment["start"] >= max(0.0, duration_seconds - ending_allowance_seconds):
+                ending_segments.append(segment)
+            else:
+                mid_segments.append(segment)
+
+        longest_mid = max((segment["duration"] for segment in mid_segments), default=0.0)
+        longest_ending = max((segment["duration"] for segment in ending_segments), default=0.0)
+        check: dict[str, Any] = {
+            **base,
+            "status": "passed",
+            "has_audio_stream": True,
+            "segment_count": len(segments),
+            "mid_video_segment_count": len(mid_segments),
+            "ending_segment_count": len(ending_segments),
+            "longest_mid_video_silence_seconds": round(longest_mid, 3),
+            "longest_ending_silence_seconds": round(longest_ending, 3),
+            "segments": segments,
+            "mid_video_segments": mid_segments,
+            "ending_segments": ending_segments,
+        }
+        if longest_mid > fail_seconds:
+            check["status"] = "failed"
+            check["message"] = (
+                f"Mid-video silence {longest_mid:.3f}s exceeds fail threshold {fail_seconds:.3f}s."
+            )
+        elif longest_mid > warning_seconds:
+            check["status"] = "warning"
+            check["message"] = (
+                f"Mid-video silence {longest_mid:.3f}s exceeds warning threshold {warning_seconds:.3f}s."
+            )
+        return check
+
+    @staticmethod
+    def _parse_silencedetect(stderr: str) -> list[dict[str, Any]]:
+        starts = [float(value) for value in re.findall(r"silence_start:\s*([\d.]+)", stderr)]
+        ends = [float(value) for value in re.findall(r"silence_end:\s*([\d.]+)", stderr)]
+        durations = [float(value) for value in re.findall(r"silence_duration:\s*([\d.]+)", stderr)]
+        segments = []
+        for index in range(min(len(starts), len(ends))):
+            duration = durations[index] if index < len(durations) else ends[index] - starts[index]
+            segments.append(
+                {
+                    "start": round(starts[index], 3),
+                    "end": round(ends[index], 3),
+                    "duration": round(duration, 3),
+                }
+            )
+        return segments
 
     def _timing_qa_check(
         self,

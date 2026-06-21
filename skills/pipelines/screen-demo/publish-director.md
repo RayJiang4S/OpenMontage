@@ -80,7 +80,9 @@ For developer or product-demo content, also package:
 - error terms if it is a troubleshooting demo.
 
 Use `publish_packager` when available to produce a final package directory and
-`final_package_manifest.json`. If `cover_policy.first_frame_mode` is
+`final_package_manifest.json`. Treat its duration, loudness, long mid-video
+silence, and required Timing QA checks as the final technical gates before
+sharing a human review package. If `cover_policy.first_frame_mode` is
 `replace_first_frame`, use `cover_mode: "replace_first_frame"` so the cover
 becomes the first visible frame without adding extra time before the original
 audio.

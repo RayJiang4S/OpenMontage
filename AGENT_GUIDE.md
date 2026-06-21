@@ -677,10 +677,14 @@ For narration-led videos with reveal/highlight timing, prefer this loop:
    render so visual events are tied to word-level transcript anchors instead of
    scattered hand-tuned seconds.
 2. Render the MP4 and run normal technical QA.
-3. Use `video_feedback_review_package` from
+3. For final or near-final deliverables, run `publish_packager` so the encoded
+   MP4 is checked for duration drift, effectively silent audio, long mid-video
+   dead-air gaps, and required Timing QA references. A narration-led video with
+   unexpected multi-second silence in the middle should not pass final packaging.
+4. Use `video_feedback_review_package` from
    `skills/core/video-feedback-review-package.md` as the standard handoff when
    the user should watch the actual video and submit current-time feedback.
-4. Use `visual_timing_qa` for targeted before/at/after frame checks only when
+5. Use `visual_timing_qa` for targeted before/at/after frame checks only when
    a concrete visual state still needs inspection.
 
 Do not rely on detached frame sheets as the primary review mechanism when a
@@ -690,11 +694,11 @@ from playback.
 For user-reviewed video deliverables, treat the video feedback review package as
 the default publish sidecar unless the user explicitly opts out. Do not add a
 separate pipeline stage or checkpoint for it; create it inside the publish stage
-after render/technical QA and before final handoff. It replaces detached frame
-sheets as the default human review mechanism. Keep `visual_timing_qa` only for
-targeted high-risk visual-state checks. Record the package path, tunnel handoff
-note, and feedback JSONL location in `publish_log` so the next revision can
-consume the feedback without rediscovery.
+after render/technical QA and final package gates, before final handoff. It
+replaces detached frame sheets as the default human review mechanism. Keep
+`visual_timing_qa` only for targeted high-risk visual-state checks. Record the
+package path, tunnel handoff note, and feedback JSONL location in `publish_log`
+so the next revision can consume the feedback without rediscovery.
 
 ## What Not To Do
 

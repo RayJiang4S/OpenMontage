@@ -122,7 +122,9 @@ exports/
 For final deliverables, use `publish_packager` when available instead of
 manually copying files. It should package the approved render, cover/poster
 image, subtitles, metadata, and review sidecars into a final directory and
-write `final_package_manifest.json`.
+write `final_package_manifest.json`. Treat its duration, loudness, long
+mid-video silence, and required Timing QA checks as the final technical gates
+before sharing a human review package.
 
 For iterative human review before final publishing, read
 `skills/core/video-feedback-review-package.md` and use

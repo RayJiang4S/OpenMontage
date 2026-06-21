@@ -52,6 +52,18 @@ Packaging also writes `FINAL_PACKAGE.md`, a standard package summary with
 absolute paths for the video, cover, copied files, reference pages, and
 checksums. Prefer this over adding ad hoc archive-manifest sidecars.
 
+Packaging runs encoded-output audio gates on the packaged MP4:
+
+- loudness check prevents an audio stream that is effectively silent;
+- `silencedetect` scans for dead-air gaps after final encoding;
+- by default, mid-video silence over 2 seconds is flagged and over 3 seconds
+  fails the package; silence that starts within the final 3 seconds is treated
+  as an ending hold.
+
+This catches narration gaps that frame checks and visual-only timing reviews can
+miss, such as a cross-scene pause where the visuals keep moving but the voiceover
+falls away.
+
 ### `review`
 
 Creates a local confirmation page for the package:
@@ -120,7 +132,9 @@ The recommended flow is:
 1. Generate one or more render candidates.
 2. Use `variant_manager review` and `annotate` until a candidate is approved.
 3. Pass the approved candidate's package inputs into `publish_packager package`.
-4. Use `publish_packager review` to inspect the final video, cover, copied
+4. Confirm the package passes duration, loudness, long-silence, and any required
+   Timing QA gates.
+5. Use `publish_packager review` to inspect the final video, cover, copied
    sidecars, and reference pages.
-5. If anything is wrong, adjust the inputs and rerun `package` + `review`;
+6. If anything is wrong, adjust the inputs and rerun `package` + `review`;
    otherwise deliver or publish the package.

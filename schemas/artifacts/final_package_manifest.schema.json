@@ -114,6 +114,65 @@
           },
           "additionalProperties": false
         },
+        "silence": {
+          "type": "object",
+          "properties": {
+            "status": { "type": "string" },
+            "reason": { "type": "string" },
+            "message": { "type": "string" },
+            "has_audio_stream": { "type": "boolean" },
+            "threshold_db": { "type": "number" },
+            "min_duration_seconds": { "type": "number" },
+            "warning_seconds": { "type": "number" },
+            "fail_seconds": { "type": "number" },
+            "ending_allowance_seconds": { "type": "number" },
+            "segment_count": { "type": "integer", "minimum": 0 },
+            "mid_video_segment_count": { "type": "integer", "minimum": 0 },
+            "ending_segment_count": { "type": "integer", "minimum": 0 },
+            "longest_mid_video_silence_seconds": { "type": "number" },
+            "longest_ending_silence_seconds": { "type": "number" },
+            "segments": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "start": { "type": "number" },
+                  "end": { "type": "number" },
+                  "duration": { "type": "number" }
+                },
+                "required": ["start", "end", "duration"],
+                "additionalProperties": false
+              }
+            },
+            "mid_video_segments": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "start": { "type": "number" },
+                  "end": { "type": "number" },
+                  "duration": { "type": "number" }
+                },
+                "required": ["start", "end", "duration"],
+                "additionalProperties": false
+              }
+            },
+            "ending_segments": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "start": { "type": "number" },
+                  "end": { "type": "number" },
+                  "duration": { "type": "number" }
+                },
+                "required": ["start", "end", "duration"],
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        },
         "timing_qa": {
           "type": "object",
           "properties": {
