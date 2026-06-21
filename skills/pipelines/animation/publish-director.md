@@ -31,6 +31,12 @@ Store in `publish_log.metadata`:
 - `thumbnail_concept`
 - `platform_notes`
 
+For iterative human review before final publishing, read
+`skills/core/video-feedback-preview.md` and use `video_feedback_preview` to
+prepare a keyed video page with current-time and overall feedback capture. This
+is preferred when a reviewer needs to watch the actual MP4 and report exact
+moments instead of reviewing detached frame sheets.
+
 ### 3. Quality Gate
 
 - metadata fits the actual animation mode,

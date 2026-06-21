@@ -447,10 +447,11 @@ Key capability families to look for in the output:
 - **music_generation** — Music and sound effect generation.
 - **video_post** — Composition, stitching, trimming (FFmpeg-based, always local).
 - **audio_processing** — Mixing, enhancement (FFmpeg-based, always local).
-- **analysis** — Transcription, scene detection, frame sampling.
+- **analysis** — Transcription, scene detection, frame sampling, word-level visual sync anchors.
 - **avatar** — Talking head and lip sync generation.
 - **character_animation** — Local character specs, SVG rigs, pose libraries, action timelines, previews, and QA.
 - **enhancement** — Upscale, background removal, face enhance, color grading.
+- **publishing** — Final packaging, cataloging, and keyed video feedback preview pages.
 
 Each tool in the registry declares `best_for`, `install_instructions`, `runtime` (LOCAL, API, LOCAL_GPU, HYBRID), and `status`. Read these fields — do not assume tool strengths from memory.
 
@@ -667,6 +668,23 @@ The `.agents/skills/` directory is large. When you're not coming in through a to
 | How does a tool actually work? | the tool's `usage_location` from the registry |
 | How should this pipeline stage behave? | `skills/pipelines/<pipeline>/...` |
 | What is the checkpoint/review policy? | `skills/meta/` |
+
+## High-Leverage Review Loop
+
+For narration-led videos with reveal/highlight timing, prefer this loop:
+
+1. Use `visual_sync_anchors` from `skills/core/visual-sync-anchors.md` before
+   render so visual events are tied to word-level transcript anchors instead of
+   scattered hand-tuned seconds.
+2. Render the MP4 and run normal technical QA.
+3. Use `video_feedback_preview` from `skills/core/video-feedback-preview.md`
+   when the user should watch the actual video and submit current-time feedback.
+4. Use `visual_timing_qa` for targeted before/at/after frame checks only when
+   a concrete visual state still needs inspection.
+
+Do not rely on detached frame sheets as the primary review mechanism when a
+timecoded video feedback page would let the reviewer report the issue directly
+from playback.
 
 ## What Not To Do
 

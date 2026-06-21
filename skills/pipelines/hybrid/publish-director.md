@@ -36,6 +36,12 @@ Recommended metadata keys:
 - `source_mix_notes`
 - `platform_copy_map`
 
+For review loops before final packaging, read
+`skills/core/video-feedback-preview.md` and use `video_feedback_preview` to
+prepare a keyed MP4 review page with timecoded feedback. This is especially
+useful for hybrid/source-led work because the reviewer can comment against the
+actual playback instead of comparing detached still frames.
+
 ### 4. Quality Gate
 
 - master and variants are clearly labeled,

@@ -84,6 +84,45 @@ def test_stable_policy_starts_before_word_anchor(tmp_path: Path):
     assert result.data["anchors"]["opening"]["manualSubmissions"] == 15.07
 
 
+def test_accepts_visual_cues_path_and_millisecond_words(tmp_path: Path):
+    transcript_payload = {
+        "segments": [
+            {
+                "words": [
+                    {"word": "Runtime", "startMs": 254420, "endMs": 254900},
+                    {"word": "monitoring", "startMs": 254920, "endMs": 255500},
+                ]
+            }
+        ]
+    }
+    cues_path = tmp_path / "visual-cues.json"
+    cues_path.write_text(
+        json.dumps(
+            {
+                "cues": [
+                    {
+                        "id": "runtime-monitoring",
+                        "group": "systemLoop",
+                        "anchor_text": "Runtime monitoring",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = VisualSyncAnchors().execute(
+        {
+            "transcript": transcript_payload,
+            "visual_cues_path": str(cues_path),
+            "output_dir": str(tmp_path),
+        }
+    )
+
+    assert result.success
+    assert result.data["anchors"]["systemLoop"]["runtimeMonitoring"] == 254.42
+
+
 def test_missing_anchor_can_fail_or_report(tmp_path: Path):
     result = VisualSyncAnchors().execute(
         {

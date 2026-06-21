@@ -40,6 +40,12 @@ For each output variant, verify:
 - subtitle legibility,
 - audio consistency.
 
+For narration-tied support overlays, product focus boxes, callouts, or highlight
+states, read `skills/core/visual-sync-anchors.md` and run
+`visual_sync_anchors` before rendering. Use the generated word-level anchor
+table instead of hand-tuned literal seconds, then verify the encoded result with
+`visual_timing_qa` when the timing is high risk.
+
 ### 3. Keep Audio Coherent
 
 Source dialogue, narration, music, and effects should feel like one mix, not separate layers fighting for space.

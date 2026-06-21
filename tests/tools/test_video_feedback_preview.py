@@ -46,4 +46,6 @@ def test_video_feedback_preview_generates_generic_review_package(tmp_path: Path)
 def test_video_feedback_preview_is_discoverable():
     registry = ToolRegistry()
     registry.discover("tools")
-    assert registry.get("video_feedback_preview") is not None
+    tool = registry.get("video_feedback_preview")
+    assert tool is not None
+    assert tool.capability == "publishing"

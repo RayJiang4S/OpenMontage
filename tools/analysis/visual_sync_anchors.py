@@ -88,8 +88,10 @@ class VisualSyncAnchors(BaseTool):
             "stable_lead_seconds": {"type": "number", "default": 0.35},
             "fail_on_missing": {"type": "boolean", "default": True},
         },
-        "anyOf": [{"required": ["transcript_path"]}, {"required": ["transcript"]}],
-        "required": ["visual_cues"],
+        "allOf": [
+            {"anyOf": [{"required": ["transcript_path"]}, {"required": ["transcript"]}]},
+            {"anyOf": [{"required": ["visual_cues_path"]}, {"required": ["visual_cues"]}]},
+        ],
     }
     output_schema = {
         "type": "object",
@@ -315,12 +317,13 @@ class VisualSyncAnchors(BaseTool):
                 if not isinstance(word, dict):
                     continue
                 text = str(word.get("word") or word.get("text") or "").strip()
-                start = self._first_number(word, ("start", "start_seconds", "startMs"))
-                end = self._first_number(word, ("end", "end_seconds", "endMs"))
+                start, start_key = self._first_number_with_key(word, ("start", "start_seconds", "startMs"))
+                end, end_key = self._first_number_with_key(word, ("end", "end_seconds", "endMs"))
                 if start is None or not text:
                     continue
-                if "Ms" in word:
+                if start_key == "startMs":
                     start = start / 1000.0
+                if end is not None and end_key == "endMs":
                     end = end / 1000.0 if end is not None else None
                 words.append(
                     {
@@ -391,6 +394,13 @@ class VisualSyncAnchors(BaseTool):
             if item.get(key) is not None:
                 return float(item[key])
         return None
+
+    @staticmethod
+    def _first_number_with_key(item: dict[str, Any], keys: tuple[str, ...]) -> tuple[float | None, str | None]:
+        for key in keys:
+            if item.get(key) is not None:
+                return float(item[key]), key
+        return None, None
 
     @staticmethod
     def _cue_result(

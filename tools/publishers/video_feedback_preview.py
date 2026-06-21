@@ -26,8 +26,8 @@ from tools.base_tool import (
 class VideoFeedbackPreview(BaseTool):
     name = "video_feedback_preview"
     version = "0.1.0"
-    tier = ToolTier.CORE
-    capability = "publish"
+    tier = ToolTier.PUBLISH
+    capability = "publishing"
     provider = "openmontage"
     stability = ToolStability.EXPERIMENTAL
     execution_mode = ExecutionMode.SYNC

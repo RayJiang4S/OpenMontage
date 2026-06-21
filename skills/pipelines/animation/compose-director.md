@@ -149,6 +149,12 @@ This tool:
 
 ### 4. Pre-Render Validation (MANDATORY — NO EXCEPTIONS)
 
+For narration-tied text, node, diagram, or highlight reveals, read
+`skills/core/visual-sync-anchors.md` and run `visual_sync_anchors` before
+rendering. Use the generated anchor table in Remotion/HyperFrames timing data
+instead of hand-tuned literal seconds. This prevents the common failure where a
+visual element "almost" follows the narration but drifts across revisions.
+
 Run `composition_validator` before every render:
 
 ```python
@@ -203,6 +209,7 @@ ffmpeg -y -i final.mp4 \
 - [ ] Particles are rendering (sparkles, fireflies, etc. visible)
 - [ ] Camera motion is evident (framing differs from static)
 - [ ] Overlays display at correct moments with clean text
+- [ ] Narration-tied reveals use word-level visual sync anchors when word-level transcript data exists
 - [ ] Color palette is consistent across scenes
 - [ ] Vignette creates cinematic depth
 
