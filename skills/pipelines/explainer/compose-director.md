@@ -276,6 +276,17 @@ If Remotion is not available, fall back to SRT generation + FFmpeg burn:
 
 ### Step 5c: Pre-Render Validation (Mandatory)
 
+**For narration-tied visual reveals/highlights, run Visual Sync Anchors before rendering.**
+Read `skills/core/visual-sync-anchors.md`, then call `visual_sync_anchors` with
+the word-level transcript and approved visual cues. Wire the generated
+`visualSync` table into Remotion instead of using scattered literal trigger
+seconds. Record the policy and artifact path in `render_report.metadata`.
+
+Use this whenever a cue describes a card reveal, row highlight, focus box,
+process-node reveal, or other visual state that should appear with a spoken
+phrase. This is separate from post-render `visual_timing_qa`: anchors prevent
+timing drift before render; QA verifies the encoded result after render.
+
 **Always run the composition validator before rendering.** This catches problems that waste render time.
 
 ```python
@@ -432,6 +443,10 @@ Score (1-5):
 | **Visual quality** | Are images sharp, transitions smooth, no artifacts? |
 | **Subtitle accuracy** | Are subtitles present, readable, and synced? |
 | **Visual timing** | If visual timing cues exist, does `visual_timing_qa` show the expected state at each cue? |
+
+For narration-tied reveals, also confirm the render used a generated
+`visual_sync_anchors.json`/`visualSync.ts` artifact rather than component-local
+literal seconds.
 
 If any dimension scores below 3, investigate and re-render.
 

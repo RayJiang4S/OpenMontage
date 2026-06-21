@@ -85,6 +85,12 @@ Use `publish_packager` when available to produce a final package directory and
 becomes the first visible frame without adding extra time before the original
 audio.
 
+For review loops before final publishing, read
+`skills/core/video-feedback-preview.md` and use `video_feedback_preview` to
+prepare a keyed HTML5 video page with timecoded feedback capture. This is the
+preferred handoff when a reviewer will watch on phone or outside the local
+network and report exact moments that need adjustment.
+
 ### 5. Quality Gate
 
 - metadata names the real tool and task,

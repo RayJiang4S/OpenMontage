@@ -56,6 +56,12 @@ If the source is 4K and text is tiny, keep a higher resolution when practical.
 5. mix audio,
 6. encode with text-preserving settings.
 
+For narration-tied overlay reveals, focus boxes, callouts, or highlight states,
+read `skills/core/visual-sync-anchors.md` and run `visual_sync_anchors` before
+rendering. Use its generated `visualSync` table in Remotion/HyperFrames timing
+data instead of hand-tuned literal seconds. Post-render `visual_timing_qa`
+should then verify the encoded result at the same cue anchors.
+
 Use sharp scaling and avoid aggressive compression. Screen text is the first thing viewers notice when encode quality drops.
 
 ### 4. Keep Audio Honest
@@ -76,6 +82,7 @@ Use sharp scaling and avoid aggressive compression. Screen text is the first thi
 - [ ] Text is sharp and readable at sampled frames
 - [ ] Crop transitions are smooth enough to follow
 - [ ] Callout overlays appear and disappear cleanly
+- [ ] Narration-tied reveals use word-level visual sync anchors, not scattered hand-tuned seconds
 - [ ] Blur masks fully cover sensitive data
 - [ ] No black frames or timing glitches
 - [ ] Subtitles do not sit on top of critical UI
