@@ -688,9 +688,13 @@ timecoded video feedback page would let the reviewer report the issue directly
 from playback.
 
 For user-reviewed video deliverables, treat the video feedback review package as
-the default publish sidecar unless the user explicitly opts out. Record the
-package path, tunnel handoff note, and feedback JSONL location in `publish_log`
-so the next revision can consume the feedback without rediscovery.
+the default publish sidecar unless the user explicitly opts out. Do not add a
+separate pipeline stage or checkpoint for it; create it inside the publish stage
+after render/technical QA and before final handoff. It replaces detached frame
+sheets as the default human review mechanism. Keep `visual_timing_qa` only for
+targeted high-risk visual-state checks. Record the package path, tunnel handoff
+note, and feedback JSONL location in `publish_log` so the next revision can
+consume the feedback without rediscovery.
 
 ## What Not To Do
 

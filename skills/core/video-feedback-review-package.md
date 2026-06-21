@@ -14,6 +14,12 @@ the user explicitly opts out or the output is only an internal probe. This is
 preferred over detached frame sheets for normal human review because feedback is
 captured at the playback time where the issue is observed.
 
+Do not model this as an extra pipeline stage. It is the default human-review
+sidecar produced inside the publish stage after the MP4 exists and automated
+technical QA has passed. It should replace routine manual frame-sheet review;
+use `visual_timing_qa` only for specific high-risk cues that still need
+before/at/after frame inspection.
+
 Use it for:
 
 - "at 00:16 this highlight is late";
