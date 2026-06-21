@@ -676,15 +676,19 @@ For narration-led videos with reveal/highlight timing, prefer this loop:
 1. Use `visual_sync_anchors` from `skills/core/visual-sync-anchors.md` before
    render so visual events are tied to word-level transcript anchors instead of
    scattered hand-tuned seconds.
-2. Render the MP4 and run normal technical QA.
-3. For final or near-final deliverables, run `publish_packager` so the encoded
+2. After any final TTS regeneration, trim, speed change, or near-final render,
+   run `voice_pacing_qa` from `skills/core/voice-pacing-qa.md` so scene WPM,
+   rolling WPM shifts, pauses, loudness, and estimated pitch are checked before
+   the reviewer hears abrupt delivery changes.
+3. Render the MP4 and run normal technical QA.
+4. For final or near-final deliverables, run `publish_packager` so the encoded
    MP4 is checked for duration drift, effectively silent audio, long mid-video
    dead-air gaps, and required Timing QA references. A narration-led video with
    unexpected multi-second silence in the middle should not pass final packaging.
-4. Use `video_feedback_review_package` from
+5. Use `video_feedback_review_package` from
    `skills/core/video-feedback-review-package.md` as the standard handoff when
    the user should watch the actual video and submit current-time feedback.
-5. Use `visual_timing_qa` for targeted before/at/after frame checks only when
+6. Use `visual_timing_qa` for targeted before/at/after frame checks only when
    a concrete visual state still needs inspection.
 
 Do not rely on detached frame sheets as the primary review mechanism when a
