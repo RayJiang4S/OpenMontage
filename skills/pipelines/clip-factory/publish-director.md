@@ -45,8 +45,16 @@ Store in `publish_log.metadata`:
 - `posting_order`
 - `platform_copy_map`
 - `schedule_notes`
+- `review_feedback_packages`
 
-### 5. Quality Gate
+### 5. Create Standard Review Feedback Packages
+
+For user review, read `skills/core/video-feedback-review-package.md` and use
+`video_feedback_review_package` for the hero clip, the batch preview, or every
+clip that needs direct feedback. Record package paths and any tunnel handoff
+notes in `publish_log`.
+
+### 6. Quality Gate
 
 - strongest clips lead the rollout,
 - captions are platform-specific,

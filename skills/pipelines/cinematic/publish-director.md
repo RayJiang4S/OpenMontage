@@ -41,8 +41,15 @@ Store in `publish_log.metadata`:
 - `derivative_outputs`
 - `poster_frame_notes`
 - `distribution_notes`
+- `review_feedback_package`
 
-### 4. Quality Gate
+### 4. Create The Standard Review Feedback Package
+
+For user review, read `skills/core/video-feedback-review-package.md` and use
+`video_feedback_review_package` unless the user explicitly opts out. Record the
+review package path and any tunnel handoff note in `publish_log`.
+
+### 5. Quality Gate
 
 - hero export is clearly identified,
 - derivative exports are labeled by purpose,

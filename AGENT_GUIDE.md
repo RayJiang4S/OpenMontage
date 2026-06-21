@@ -451,7 +451,7 @@ Key capability families to look for in the output:
 - **avatar** — Talking head and lip sync generation.
 - **character_animation** — Local character specs, SVG rigs, pose libraries, action timelines, previews, and QA.
 - **enhancement** — Upscale, background removal, face enhance, color grading.
-- **publishing** — Final packaging, cataloging, and keyed video feedback preview pages.
+- **publishing** — Final packaging, cataloging, and keyed video feedback review packages.
 
 Each tool in the registry declares `best_for`, `install_instructions`, `runtime` (LOCAL, API, LOCAL_GPU, HYBRID), and `status`. Read these fields — do not assume tool strengths from memory.
 
@@ -677,14 +677,20 @@ For narration-led videos with reveal/highlight timing, prefer this loop:
    render so visual events are tied to word-level transcript anchors instead of
    scattered hand-tuned seconds.
 2. Render the MP4 and run normal technical QA.
-3. Use `video_feedback_preview` from `skills/core/video-feedback-preview.md`
-   when the user should watch the actual video and submit current-time feedback.
+3. Use `video_feedback_review_package` from
+   `skills/core/video-feedback-review-package.md` as the standard handoff when
+   the user should watch the actual video and submit current-time feedback.
 4. Use `visual_timing_qa` for targeted before/at/after frame checks only when
    a concrete visual state still needs inspection.
 
 Do not rely on detached frame sheets as the primary review mechanism when a
 timecoded video feedback page would let the reviewer report the issue directly
 from playback.
+
+For user-reviewed video deliverables, treat the video feedback review package as
+the default publish sidecar unless the user explicitly opts out. Record the
+package path, tunnel handoff note, and feedback JSONL location in `publish_log`
+so the next revision can consume the feedback without rediscovery.
 
 ## What Not To Do
 

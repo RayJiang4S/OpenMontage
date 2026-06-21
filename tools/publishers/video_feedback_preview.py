@@ -1,4 +1,4 @@
-"""Create a keyed video review page with timecoded feedback capture."""
+"""Create a keyed video review package with timecoded feedback capture."""
 
 from __future__ import annotations
 
@@ -25,11 +25,11 @@ from tools.base_tool import (
 
 class VideoFeedbackPreview(BaseTool):
     name = "video_feedback_preview"
-    version = "0.1.0"
+    version = "0.2.0"
     tier = ToolTier.PUBLISH
     capability = "publishing"
     provider = "openmontage"
-    stability = ToolStability.EXPERIMENTAL
+    stability = ToolStability.BETA
     execution_mode = ExecutionMode.SYNC
     determinism = Determinism.DETERMINISTIC
     runtime = ToolRuntime.LOCAL
@@ -39,9 +39,11 @@ class VideoFeedbackPreview(BaseTool):
     agent_skills: list[str] = []
 
     capabilities = [
+        "standard_video_review_package",
         "keyed_video_feedback_preview",
         "timecoded_reviewer_feedback",
         "local_jsonl_feedback_storage",
+        "feedback_summary_export",
         "mobile_review_page",
     ]
     supports = {
@@ -51,13 +53,15 @@ class VideoFeedbackPreview(BaseTool):
         "overall_feedback": True,
         "scene_auto_match": True,
         "local_jsonl_storage": True,
+        "feedback_read_api": True,
+        "feedback_summary_markdown": True,
         "cloudflare_tunnel_ready": True,
     }
     best_for = [
-        "sharing a review MP4 on phone or external network while collecting precise timecoded feedback",
-        "iterating narration-led videos with human feedback tied to playback time",
-        "temporary review links before final publishing",
-    ]
+            "sharing a review MP4 on phone or external network while collecting precise timecoded feedback",
+            "iterating narration-led videos with human feedback tied to playback time",
+            "standard OpenMontage review handoffs before final publishing",
+        ]
     not_good_for = [
         "durable public hosting",
         "identity-based access control",
@@ -67,9 +71,11 @@ class VideoFeedbackPreview(BaseTool):
     input_schema = {
         "type": "object",
         "properties": {
-            "operation": {"type": "string", "enum": ["prepare"], "default": "prepare"},
+            "operation": {"type": "string", "enum": ["prepare", "summarize"], "default": "prepare"},
             "video_path": {"type": "string"},
             "output_dir": {"type": "string"},
+            "feedback_path": {"type": "string"},
+            "feedback_dir": {"type": "string"},
             "video_label": {"type": "string"},
             "page_title": {"type": "string", "default": "Video Feedback"},
             "video_filename": {"type": "string", "default": "video.mp4"},
@@ -79,9 +85,20 @@ class VideoFeedbackPreview(BaseTool):
             "default_port": {"type": "integer", "default": 8794},
             "feedback_dir_env": {"type": "string", "default": "FEEDBACK_DIR"},
             "feedback_file_env": {"type": "string", "default": "FEEDBACK_FILE"},
+            "summary_filename": {"type": "string", "default": "feedback_summary.md"},
+            "records_filename": {"type": "string", "default": "feedback_records.json"},
             "scenes": {"type": "array"},
         },
-        "required": ["video_path", "output_dir"],
+        "allOf": [
+            {
+                "if": {"properties": {"operation": {"const": "prepare"}}},
+                "then": {"required": ["video_path", "output_dir"]},
+            },
+            {
+                "if": {"properties": {"operation": {"const": "summarize"}}},
+                "then": {"anyOf": [{"required": ["feedback_path"]}, {"required": ["feedback_dir"]}]},
+            },
+        ],
     }
     output_schema = {
         "type": "object",
@@ -92,15 +109,31 @@ class VideoFeedbackPreview(BaseTool):
             "server_path": {"type": "string"},
             "config_path": {"type": "string"},
             "readme_path": {"type": "string"},
+            "summary_script_path": {"type": "string"},
             "served_video_path": {"type": "string"},
+            "feedback_dir": {"type": "string"},
             "video_label": {"type": "string"},
             "access_key_env": {"type": "string"},
             "launch_command": {"type": "string"},
+            "feedback_json_url": {"type": "string"},
+            "feedback_markdown_url": {"type": "string"},
+            "summary_command": {"type": "string"},
+            "feedback_count": {"type": "integer"},
+            "summary_path": {"type": "string"},
+            "records_path": {"type": "string"},
         },
     }
 
     resource_profile = ResourceProfile(cpu_cores=1, ram_mb=128, vram_mb=0, disk_mb=20)
-    idempotency_key_fields = ["operation", "video_path", "output_dir", "video_label", "scenes"]
+    idempotency_key_fields = [
+        "operation",
+        "video_path",
+        "output_dir",
+        "video_label",
+        "scenes",
+        "feedback_path",
+        "feedback_dir",
+    ]
     side_effects = [
         "writes a local preview page",
         "writes a local keyed feedback server",
@@ -118,11 +151,14 @@ class VideoFeedbackPreview(BaseTool):
         operation = inputs.get("operation", "prepare")
         start = time.time()
         try:
-            if operation != "prepare":
+            if operation == "prepare":
+                result = self._prepare(inputs)
+            elif operation == "summarize":
+                result = self._summarize(inputs)
+            else:
                 return ToolResult(success=False, error=f"Unknown operation: {operation}")
-            result = self._prepare(inputs)
         except Exception as exc:
-            return ToolResult(success=False, error=f"Video feedback preview preparation failed: {exc}")
+            return ToolResult(success=False, error=f"Video feedback review package failed: {exc}")
         result.duration_seconds = round(time.time() - start, 2)
         return result
 
@@ -148,6 +184,7 @@ class VideoFeedbackPreview(BaseTool):
 
         config = {
             "version": self.version,
+            "tool_name": self.name,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "video_label": video_label,
             "page_title": page_title,
@@ -162,13 +199,19 @@ class VideoFeedbackPreview(BaseTool):
         config_path = output_dir / "preview_config.json"
         index_path = output_dir / "index.html"
         server_path = output_dir / "serve_with_key.py"
+        summary_script_path = output_dir / "summarize_feedback.py"
         readme_path = output_dir / "README.md"
 
         config_path.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         index_path.write_text(self._index_html(page_title, video_filename), encoding="utf-8")
         server_path.write_text(self._server_py(), encoding="utf-8")
-        readme_path.write_text(self._readme(video_label, video_filename, access_key_env, port_env, default_port), encoding="utf-8")
+        summary_script_path.write_text(self._summary_py(), encoding="utf-8")
+        readme_path.write_text(
+            self._readme(video_label, video_filename, access_key_env, port_env, default_port, self.name),
+            encoding="utf-8",
+        )
 
+        feedback_dir = output_dir / "feedback"
         data = {
             "operation": "prepare",
             "output_dir": str(output_dir),
@@ -176,16 +219,121 @@ class VideoFeedbackPreview(BaseTool):
             "server_path": str(server_path),
             "config_path": str(config_path),
             "readme_path": str(readme_path),
+            "summary_script_path": str(summary_script_path),
             "served_video_path": str(served_video_path),
+            "feedback_dir": str(feedback_dir),
             "video_label": video_label,
             "access_key_env": access_key_env,
             "launch_command": f"{access_key_env}=<shared-key> {port_env}={default_port} python3 serve_with_key.py",
+            "feedback_json_url": "/feedback.json?key=<shared-key>",
+            "feedback_markdown_url": "/feedback.md?key=<shared-key>",
+            "summary_command": "python3 summarize_feedback.py",
         }
         return ToolResult(
             success=True,
             data=data,
-            artifacts=[str(index_path), str(server_path), str(config_path), str(readme_path), str(served_video_path)],
+            artifacts=[
+                str(index_path),
+                str(server_path),
+                str(summary_script_path),
+                str(config_path),
+                str(readme_path),
+                str(served_video_path),
+            ],
         )
+
+    def _summarize(self, inputs: dict[str, Any]) -> ToolResult:
+        feedback_paths = self._feedback_paths(inputs)
+        records = self._read_feedback_records(feedback_paths)
+        markdown = self._feedback_summary_markdown(records)
+
+        artifacts: list[str] = []
+        data: dict[str, Any] = {
+            "operation": "summarize",
+            "feedback_count": len(records),
+            "feedback_paths": [str(path) for path in feedback_paths],
+            "summary_markdown": markdown,
+        }
+        output_dir_value = inputs.get("output_dir")
+        if output_dir_value:
+            output_dir = Path(str(output_dir_value)).expanduser().resolve()
+            output_dir.mkdir(parents=True, exist_ok=True)
+            summary_path = output_dir / str(inputs.get("summary_filename") or "feedback_summary.md")
+            records_path = output_dir / str(inputs.get("records_filename") or "feedback_records.json")
+            summary_path.write_text(markdown, encoding="utf-8")
+            records_path.write_text(json.dumps(records, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            artifacts.extend([str(summary_path), str(records_path)])
+            data["output_dir"] = str(output_dir)
+            data["summary_path"] = str(summary_path)
+            data["records_path"] = str(records_path)
+
+        return ToolResult(success=True, data=data, artifacts=artifacts)
+
+    @staticmethod
+    def _feedback_paths(inputs: dict[str, Any]) -> list[Path]:
+        paths: list[Path] = []
+        if inputs.get("feedback_path"):
+            paths.append(Path(str(inputs["feedback_path"])).expanduser().resolve())
+        if inputs.get("feedback_dir"):
+            feedback_dir = Path(str(inputs["feedback_dir"])).expanduser().resolve()
+            paths.extend(sorted(feedback_dir.glob("*.jsonl")))
+        existing = [path for path in paths if path.is_file()]
+        if not existing:
+            raise ValueError("No feedback JSONL files found")
+        return existing
+
+    @staticmethod
+    def _read_feedback_records(paths: list[Path]) -> list[dict[str, Any]]:
+        records: list[dict[str, Any]] = []
+        for path in paths:
+            for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+                if not line.strip():
+                    continue
+                try:
+                    item = json.loads(line)
+                except json.JSONDecodeError as exc:
+                    raise ValueError(f"Invalid JSONL in {path}:{line_number}") from exc
+                if isinstance(item, dict):
+                    records.append(item)
+        records.sort(key=lambda item: (str(item.get("video", "")), item.get("current_time_seconds") is None, item.get("current_time_seconds") or 0))
+        return records
+
+    @staticmethod
+    def _feedback_summary_markdown(records: list[dict[str, Any]]) -> str:
+        lines = ["# OpenMontage Video Feedback", ""]
+        if not records:
+            lines.extend(["No feedback records found.", ""])
+            return "\n".join(lines)
+        by_scope: dict[str, int] = {}
+        for record in records:
+            scope = str(record.get("scope") or "unknown")
+            by_scope[scope] = by_scope.get(scope, 0) + 1
+        lines.append(f"- Total records: {len(records)}")
+        for scope, count in sorted(by_scope.items()):
+            lines.append(f"- {scope}: {count}")
+        lines.append("")
+        for record in records:
+            scope = str(record.get("scope") or "unknown")
+            video = str(record.get("video") or "video")
+            time_label = str(record.get("playback_time_label") or "overall")
+            scene = record.get("scene") or {}
+            scene_label = scene.get("label") if isinstance(scene, dict) else ""
+            message = str(record.get("message") or "").strip()
+            heading = f"## {video} - {time_label}"
+            if scope == "overall":
+                heading = f"## {video} - overall"
+            lines.extend([
+                heading,
+                f"- ID: {record.get('id', '')}",
+                f"- Status: {record.get('status', 'open')}",
+                f"- Scope: {scope}",
+            ])
+            if scene_label:
+                lines.append(f"- Scene: {scene_label}")
+            if record.get("name"):
+                lines.append(f"- Reviewer: {record.get('name')}")
+            lines.extend(["", message, ""])
+        return "\n".join(lines)
 
     @staticmethod
     def _normalize_scenes(scenes: list[Any]) -> list[dict[str, Any]]:
@@ -386,10 +534,88 @@ class VideoFeedbackPreview(BaseTool):
 """
 
     @staticmethod
+    def _summary_py() -> str:
+        return r'''import argparse
+import json
+from pathlib import Path
+
+
+def read_records(feedback_dir: Path) -> list[dict]:
+    records = []
+    for path in sorted(feedback_dir.glob("*.jsonl")):
+        for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+            if not line.strip():
+                continue
+            try:
+                item = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise SystemExit(f"Invalid JSONL in {path}:{line_number}") from exc
+            if isinstance(item, dict):
+                records.append(item)
+    records.sort(key=lambda item: (str(item.get("video", "")), item.get("current_time_seconds") is None, item.get("current_time_seconds") or 0))
+    return records
+
+
+def summary_markdown(records: list[dict]) -> str:
+    lines = ["# OpenMontage Video Feedback", ""]
+    if not records:
+        lines.extend(["No feedback records found.", ""])
+        return "\n".join(lines)
+    by_scope = {}
+    for record in records:
+        scope = str(record.get("scope") or "unknown")
+        by_scope[scope] = by_scope.get(scope, 0) + 1
+    lines.append(f"- Total records: {len(records)}")
+    for scope, count in sorted(by_scope.items()):
+        lines.append(f"- {scope}: {count}")
+    lines.append("")
+    for record in records:
+        scope = str(record.get("scope") or "unknown")
+        video = str(record.get("video") or "video")
+        time_label = str(record.get("playback_time_label") or "overall")
+        scene = record.get("scene") or {}
+        scene_label = scene.get("label") if isinstance(scene, dict) else ""
+        message = str(record.get("message") or "").strip()
+        heading = f"## {video} - {time_label}"
+        if scope == "overall":
+            heading = f"## {video} - overall"
+        lines.extend([
+            heading,
+            f"- ID: {record.get('id', '')}",
+            f"- Status: {record.get('status', 'open')}",
+            f"- Scope: {scope}",
+        ])
+        if scene_label:
+            lines.append(f"- Scene: {scene_label}")
+        if record.get("name"):
+            lines.append(f"- Reviewer: {record.get('name')}")
+        lines.extend(["", message, ""])
+    return "\n".join(lines)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Summarize OpenMontage video feedback JSONL records.")
+    parser.add_argument("--feedback-dir", default="feedback")
+    parser.add_argument("--summary-path", default="feedback_summary.md")
+    parser.add_argument("--records-path", default="feedback_records.json")
+    args = parser.parse_args()
+
+    records = read_records(Path(args.feedback_dir))
+    Path(args.summary_path).write_text(summary_markdown(records), encoding="utf-8")
+    Path(args.records_path).write_text(json.dumps(records, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(f"Wrote {len(records)} feedback records to {args.summary_path} and {args.records_path}")
+
+
+if __name__ == "__main__":
+    main()
+'''
+
+    @staticmethod
     def _server_py() -> str:
         return r'''from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import datetime as dt
+import glob
 import json
 import os
 import posixpath
@@ -414,7 +640,7 @@ ALLOWED_FILES = {VIDEO_PATH}
 
 
 class KeyedVideoFeedbackHandler(SimpleHTTPRequestHandler):
-    server_version = "OpenMontageVideoFeedbackPreview/0.1"
+    server_version = "OpenMontageVideoFeedbackReviewPackage/0.2"
 
     def _request_key(self):
         parsed = urlparse(self.path)
@@ -477,6 +703,14 @@ button{cursor:pointer;font-weight:700;background:#0f766e;border-color:#14b8a6}
         path = self._normalized_path()
         if path in ("", "/", "/index.html"):
             self._send_index()
+            return
+        if path == "/feedback.json":
+            records = self._read_feedback_records()
+            self._send_json({"ok": True, "count": len(records), "records": records})
+            return
+        if path == "/feedback.md":
+            records = self._read_feedback_records()
+            self._send_text(self._feedback_summary_markdown(records), "text/markdown; charset=utf-8")
             return
         if path in ALLOWED_FILES:
             super().do_GET()
@@ -580,17 +814,81 @@ button{cursor:pointer;font-weight:700;background:#0f766e;border-color:#14b8a6}
         }
 
     def _append_feedback_record(self, record):
-        feedback_path = os.environ.get(CONFIG.get("feedback_file_env", "FEEDBACK_FILE"))
-        if not feedback_path:
-            feedback_dir = os.environ.get(CONFIG.get("feedback_dir_env", "FEEDBACK_DIR"), os.path.join(os.getcwd(), "feedback"))
-            date_part = dt.datetime.now(dt.timezone.utc).astimezone().strftime("%Y-%m-%d")
-            feedback_path = os.path.join(feedback_dir, f"feedback-{date_part}.jsonl")
+        feedback_path = self._feedback_storage_path()
         os.makedirs(os.path.dirname(feedback_path) or ".", exist_ok=True)
         line = json.dumps(record, ensure_ascii=False, separators=(",", ":"))
         with FEEDBACK_LOCK:
             with open(feedback_path, "a", encoding="utf-8") as feedback_file:
                 feedback_file.write(line + "\n")
         return feedback_path
+
+    def _feedback_storage_path(self):
+        feedback_path = os.environ.get(CONFIG.get("feedback_file_env", "FEEDBACK_FILE"))
+        if feedback_path:
+            return feedback_path
+        feedback_dir = os.environ.get(CONFIG.get("feedback_dir_env", "FEEDBACK_DIR"), os.path.join(os.getcwd(), "feedback"))
+        date_part = dt.datetime.now(dt.timezone.utc).astimezone().strftime("%Y-%m-%d")
+        return os.path.join(feedback_dir, f"feedback-{date_part}.jsonl")
+
+    def _feedback_paths(self):
+        feedback_path = os.environ.get(CONFIG.get("feedback_file_env", "FEEDBACK_FILE"))
+        if feedback_path:
+            return [feedback_path] if os.path.isfile(feedback_path) else []
+        feedback_dir = os.environ.get(CONFIG.get("feedback_dir_env", "FEEDBACK_DIR"), os.path.join(os.getcwd(), "feedback"))
+        return sorted(path for path in glob.glob(os.path.join(feedback_dir, "*.jsonl")) if os.path.isfile(path))
+
+    def _read_feedback_records(self):
+        records = []
+        for path in self._feedback_paths():
+            with open(path, encoding="utf-8") as feedback_file:
+                for line in feedback_file:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        item = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if isinstance(item, dict):
+                        records.append(item)
+        records.sort(key=lambda item: (str(item.get("video", "")), item.get("current_time_seconds") is None, item.get("current_time_seconds") or 0))
+        return records
+
+    def _feedback_summary_markdown(self, records):
+        lines = ["# OpenMontage Video Feedback", ""]
+        if not records:
+            lines.extend(["No feedback records found.", ""])
+            return "\n".join(lines)
+        by_scope = {}
+        for record in records:
+            scope = str(record.get("scope") or "unknown")
+            by_scope[scope] = by_scope.get(scope, 0) + 1
+        lines.append(f"- Total records: {len(records)}")
+        for scope, count in sorted(by_scope.items()):
+            lines.append(f"- {scope}: {count}")
+        lines.append("")
+        for record in records:
+            scope = str(record.get("scope") or "unknown")
+            video = str(record.get("video") or "video")
+            time_label = str(record.get("playback_time_label") or "overall")
+            scene = record.get("scene") or {}
+            scene_label = scene.get("label") if isinstance(scene, dict) else ""
+            message = str(record.get("message") or "").strip()
+            heading = f"## {video} - {time_label}"
+            if scope == "overall":
+                heading = f"## {video} - overall"
+            lines.extend([
+                heading,
+                f"- ID: {record.get('id', '')}",
+                f"- Status: {record.get('status', 'open')}",
+                f"- Scope: {scope}",
+            ])
+            if scene_label:
+                lines.append(f"- Scene: {scene_label}")
+            if record.get("name"):
+                lines.append(f"- Reviewer: {record.get('name')}")
+            lines.extend(["", message, ""])
+        return "\n".join(lines)
 
     def _send_json(self, body, status=HTTPStatus.OK):
         data = json.dumps(body, ensure_ascii=False).encode("utf-8")
@@ -600,6 +898,16 @@ button{cursor:pointer;font-weight:700;background:#0f766e;border-color:#14b8a6}
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(data)
+
+    def _send_text(self, body, content_type, status=HTTPStatus.OK):
+        data = body.encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        if self.command != "HEAD":
+            self.wfile.write(data)
 
     def _scene_for_time(self, seconds):
         if seconds is None:
@@ -695,10 +1003,17 @@ if __name__ == "__main__":
 '''
 
     @staticmethod
-    def _readme(video_label: str, video_filename: str, access_key_env: str, port_env: str, default_port: int) -> str:
-        return f"""# OpenMontage Video Feedback Preview
+    def _readme(
+        video_label: str,
+        video_filename: str,
+        access_key_env: str,
+        port_env: str,
+        default_port: int,
+        tool_name: str,
+    ) -> str:
+        return f"""# OpenMontage Video Feedback Review Package
 
-This directory was generated by `video_feedback_preview` for `{video_label}`.
+This directory was generated by `{tool_name}` for `{video_label}`.
 
 ## Run Locally
 
@@ -716,6 +1031,19 @@ http://127.0.0.1:{default_port}/index.html?key=<shared-review-key>
 The page serves `{video_filename}` through a keyed HTML5 video player and stores
 feedback as local JSONL under `feedback/feedback-YYYY-MM-DD.jsonl` by default.
 
+Read collected feedback:
+
+```text
+http://127.0.0.1:{default_port}/feedback.json?key=<shared-review-key>
+http://127.0.0.1:{default_port}/feedback.md?key=<shared-review-key>
+```
+
+Or summarize the local JSONL files after review:
+
+```bash
+python3 summarize_feedback.py
+```
+
 For a safe submit test without polluting review data:
 
 ```bash
@@ -727,3 +1055,9 @@ Use a tunnel such as `cloudflared tunnel --url http://127.0.0.1:{default_port}`
 when temporary external phone access is needed. The shared key is read from the
 environment and is never written by this tool.
 """
+
+
+class VideoFeedbackReviewPackage(VideoFeedbackPreview):
+    """Canonical standard OpenMontage video review feedback package tool."""
+
+    name = "video_feedback_review_package"

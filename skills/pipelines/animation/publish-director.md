@@ -32,10 +32,11 @@ Store in `publish_log.metadata`:
 - `platform_notes`
 
 For iterative human review before final publishing, read
-`skills/core/video-feedback-preview.md` and use `video_feedback_preview` to
-prepare a keyed video page with current-time and overall feedback capture. This
-is preferred when a reviewer needs to watch the actual MP4 and report exact
-moments instead of reviewing detached frame sheets.
+`skills/core/video-feedback-review-package.md` and use
+`video_feedback_review_package` to prepare the standard keyed video review
+package with current-time, overall feedback, local JSONL storage, and summary
+export. This is preferred when a reviewer needs to watch the actual MP4 and
+report exact moments instead of reviewing detached frame sheets.
 
 ### 3. Quality Gate
 

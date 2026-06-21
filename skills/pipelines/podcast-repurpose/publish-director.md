@@ -46,8 +46,15 @@ Recommended metadata keys:
 - `guest_tags`
 - `posting_schedule`
 - `clip_to_episode_map`
+- `review_feedback_packages`
 
-### 5. Quality Gate
+### 5. Create Standard Review Feedback Packages
+
+For user review, read `skills/core/video-feedback-review-package.md` and use
+`video_feedback_review_package` for the full episode preview or selected clips.
+Record package paths and any tunnel handoff notes in `publish_log`.
+
+### 6. Quality Gate
 
 - every clip points back to the episode,
 - guest attribution is correct,

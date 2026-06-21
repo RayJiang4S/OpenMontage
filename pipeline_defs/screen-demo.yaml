@@ -238,10 +238,10 @@ stages:
       - publish_log
       - final_package_manifest
     optional_tools:
-      - video_feedback_preview
+      - video_feedback_review_package
     tools_available:
       - publish_packager
-      - video_feedback_preview
+      - video_feedback_review_package
     checkpoint_required: true
     human_approval_default: true
     review_focus:

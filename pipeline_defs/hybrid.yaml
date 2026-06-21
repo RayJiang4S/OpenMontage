@@ -218,9 +218,9 @@ stages:
     produces:
       - publish_log
     optional_tools:
-      - video_feedback_preview
+      - video_feedback_review_package
     tools_available:
-      - video_feedback_preview
+      - video_feedback_review_package
     checkpoint_required: true
     human_approval_default: true
     review_focus:

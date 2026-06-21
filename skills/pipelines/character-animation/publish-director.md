@@ -13,6 +13,9 @@ strong character-forward thumbnail concept.
 - If the output is a sample, label it as a sample.
 - If the final is inspired by a reference, describe the inspiration without
   claiming duplication.
+- For user review, read `skills/core/video-feedback-review-package.md` and use
+  `video_feedback_review_package` unless the user explicitly opts out. Record
+  the review package path and any tunnel handoff note in `publish_log`.
 
 ## Output
 
@@ -24,3 +27,4 @@ Produce `publish_log` with:
 - description,
 - platform-specific export notes,
 - limitations or follow-up recommendations.
+- review feedback package path or explicit opt-out.

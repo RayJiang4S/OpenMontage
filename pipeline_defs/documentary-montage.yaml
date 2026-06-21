@@ -36,6 +36,7 @@ required_skills:
   - pipelines/documentary-montage/asset-director
   - pipelines/documentary-montage/edit-director
   - pipelines/documentary-montage/compose-director
+  - pipelines/documentary-montage/publish-director
   - meta/reviewer
   - meta/checkpoint-protocol
 
@@ -176,3 +177,27 @@ stages:
       - render_report.end_tag_rendered = true (or explicit opt-out)
       - render_report.end_tag_mode = "overlay" or "concat"
       - render_report.music_mixed = true (or explicit opt-out)
+
+  - name: publish
+    skill: pipelines/documentary-montage/publish-director
+    required_artifacts_in:
+      - render_report
+    optional_artifacts_in:
+      - brief
+      - edit_decisions
+      - asset_manifest
+    produces:
+      - publish_log
+    optional_tools:
+      - video_feedback_review_package
+    tools_available:
+      - video_feedback_review_package
+    checkpoint_required: true
+    human_approval_default: true
+    review_focus:
+      - Source provenance and license notes remain attached to the package
+      - Hero export is clearly identified
+      - Review feedback package is available for timecoded human notes
+    success_criteria:
+      - Schema-valid publish_log artifact
+      - Review package path or explicit opt-out is recorded

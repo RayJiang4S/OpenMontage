@@ -125,10 +125,11 @@ image, subtitles, metadata, and review sidecars into a final directory and
 write `final_package_manifest.json`.
 
 For iterative human review before final publishing, read
-`skills/core/video-feedback-preview.md` and use `video_feedback_preview` to
-prepare a keyed local review page. This is the preferred workflow when the user
-needs to submit timecoded feedback from a phone or external network. Keep it as
-a temporary review package; do not treat it as public hosting.
+`skills/core/video-feedback-review-package.md` and use
+`video_feedback_review_package` to prepare the standard keyed local review
+package. This is the preferred workflow when the user needs to submit timecoded
+feedback from a phone or external network. Keep it as a temporary review
+package; do not treat it as public hosting.
 
 If the approved render has material narration, subtitle, screen-state, or motion
 timing changes, run Visual Timing QA before packaging and pass its review page

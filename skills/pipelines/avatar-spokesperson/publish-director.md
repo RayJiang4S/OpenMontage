@@ -30,7 +30,13 @@ Recommended metadata keys:
 
 If the avatar path has limitations such as visible lip-sync risk, retain that note in the package instead of hiding it.
 
-### 4. Quality Gate
+### 4. Create The Standard Review Feedback Package
+
+For user review, read `skills/core/video-feedback-review-package.md` and use
+`video_feedback_review_package` unless the user explicitly opts out. Record the
+review package path and any tunnel handoff note in `publish_log`.
+
+### 5. Quality Gate
 
 - exports are clearly named,
 - metadata matches the intended message,

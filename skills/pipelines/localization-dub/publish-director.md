@@ -30,7 +30,13 @@ Recommended metadata keys:
 
 If a language output has pronunciation caveats, timing warnings, or missing lip sync, keep that note in the published package.
 
-### 4. Quality Gate
+### 4. Create Standard Review Feedback Packages
+
+For user review, read `skills/core/video-feedback-review-package.md` and use
+`video_feedback_review_package` for each language video that needs feedback.
+Record package paths and any tunnel handoff notes in `publish_log`.
+
+### 5. Quality Gate
 
 - locale packages are clearly labeled,
 - metadata matches the actual treatment,

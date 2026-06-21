@@ -35,10 +35,15 @@ Create the export directory:
 - Description text file
 - Chapter markers
 - Thumbnail concept
+- Standard video feedback review package unless explicitly opted out
 
 ### Step 4: Build Publish Log
 
 Document the publish event with platform, status (draft), and export path.
+
+For user review, read `skills/core/video-feedback-review-package.md` and use
+`video_feedback_review_package`. Record the review package path and any tunnel
+handoff note in `publish_log`.
 
 ### Step 5: Self-Evaluate
 

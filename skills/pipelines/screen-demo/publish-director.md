@@ -86,8 +86,9 @@ becomes the first visible frame without adding extra time before the original
 audio.
 
 For review loops before final publishing, read
-`skills/core/video-feedback-preview.md` and use `video_feedback_preview` to
-prepare a keyed HTML5 video page with timecoded feedback capture. This is the
+`skills/core/video-feedback-review-package.md` and use
+`video_feedback_review_package` to prepare the standard keyed HTML5 video review
+package with timecoded feedback capture and local summary export. This is the
 preferred handoff when a reviewer will watch on phone or outside the local
 network and report exact moments that need adjustment.
 

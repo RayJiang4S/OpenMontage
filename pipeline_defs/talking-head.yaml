@@ -217,7 +217,10 @@ stages:
       - final_review
     produces:
       - publish_log
-    tools_available: []
+    optional_tools:
+      - video_feedback_review_package
+    tools_available:
+      - video_feedback_review_package
     checkpoint_required: true
     human_approval_default: true
     review_focus:
