@@ -396,6 +396,7 @@ class VideoFeedbackPreview(BaseTool):
     input {{ min-height:42px; padding:0 11px; }}
     textarea {{ min-height:116px; resize:vertical; padding:11px; line-height:1.45; }}
     input:focus, textarea:focus {{ border-color:var(--accent); box-shadow:0 0 0 3px rgba(45,212,191,.13); }}
+    .hint {{ color:var(--muted); font-size:12px; line-height:1.4; }}
     .scope {{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }}
     .scope-option {{ position:relative; display:grid; gap:4px; min-height:76px; border:1px solid rgba(148,163,184,.35); border-radius:6px; background:var(--strong); padding:11px; cursor:pointer; }}
     .scope-option input {{ position:absolute; opacity:0; pointer-events:none; }}
@@ -428,8 +429,8 @@ class VideoFeedbackPreview(BaseTool):
           </div>
         </div>
         <div class="grid">
-          <div class="field"><label for="name">Name (optional)</label><input id="name" autocomplete="name" placeholder="For follow-up"></div>
-          <div class="field"><label for="contact">Contact (optional)</label><input id="contact" autocomplete="email" placeholder="Email, phone, or handle"></div>
+          <div class="field"><label for="name">Name (optional)</label><input id="name" autocomplete="name" placeholder="Optional"><span class="hint">Add it if you want the processing result followed up.</span></div>
+          <div class="field"><label for="contact">Contact (optional)</label><input id="contact" autocomplete="email" placeholder="Email, phone, or handle"><span class="hint">Leave blank if there is no suitable contact channel.</span></div>
         </div>
         <div class="field"><label for="message">Feedback</label><textarea id="message" required placeholder="Describe what feels wrong or what should change."></textarea></div>
         <div class="actions"><div class="status" id="status" aria-live="polite"></div><button class="submit" id="submit" type="submit">Submit feedback</button></div>
@@ -589,6 +590,8 @@ def summary_markdown(records: list[dict]) -> str:
             lines.append(f"- Scene: {scene_label}")
         if record.get("name"):
             lines.append(f"- Reviewer: {record.get('name')}")
+        if record.get("contact"):
+            lines.append(f"- Contact: {record.get('contact')}")
         lines.extend(["", message, ""])
     return "\n".join(lines)
 
@@ -887,6 +890,8 @@ button{cursor:pointer;font-weight:700;background:#0f766e;border-color:#14b8a6}
                 lines.append(f"- Scene: {scene_label}")
             if record.get("name"):
                 lines.append(f"- Reviewer: {record.get('name')}")
+            if record.get("contact"):
+                lines.append(f"- Contact: {record.get('contact')}")
             lines.extend(["", message, ""])
         return "\n".join(lines)
 
@@ -1043,6 +1048,11 @@ Or summarize the local JSONL files after review:
 ```bash
 python3 summarize_feedback.py
 ```
+
+If feedback records include a reviewer name or contact, draft a concise
+processing-result reply after triage and ask the owner to approve the exact text
+before sending. If no contact channel is known, report that unresolved reviewer
+instead of sending anything.
 
 For a safe submit test without polluting review data:
 

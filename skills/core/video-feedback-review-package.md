@@ -124,6 +124,11 @@ Each record includes:
 - sanitized page URL with the access key removed;
 - user agent and remote address.
 
+Treat optional name/contact as a follow-up signal. After triage, draft one
+concise processing-result reply per named reviewer and ask the owner to approve
+the exact text before sending. If no group, contact channel, or person match is
+known, report the unresolved reviewer and do not send anything.
+
 ## Verification
 
 Before sharing:
