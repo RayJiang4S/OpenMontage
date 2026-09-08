@@ -44,8 +44,8 @@
         },
         "first_frame_mode": {
           "type": "string",
-          "enum": ["keep_original", "replace_first_frame"],
-          "description": "keep_original leaves the rendered first frame; replace_first_frame swaps only the first visible frame after the cover is approved."
+          "enum": ["none", "keep_original", "replace_first_frame"],
+          "description": "none or keep_original leaves the rendered first frame; replace_first_frame swaps only the first visible frame after the cover is approved."
         },
         "source_preference": {
           "type": "string",
@@ -60,6 +60,22 @@
             "draft_or_internal_only",
             "source_footage_only"
           ]
+        },
+        "triggers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "external_distribution",
+              "page_embed",
+              "product_marketing",
+              "tutorial_or_demo",
+              "user_requested",
+              "weak_initial_frame",
+              "draft_or_internal_only",
+              "source_footage_only"
+            ]
+          }
         },
         "notes": { "type": "string" }
       },

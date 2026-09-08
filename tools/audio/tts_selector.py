@@ -200,7 +200,7 @@ class TTSSelector(BaseTool):
         from lib.scoring import rank_providers
 
         task_context = self._prepare_task_context(inputs)
-        candidates = self._providers()
+        candidates = self._filter_candidates(self._providers(), inputs)
 
         # Rank mode — return scored provider rankings without generating
         if inputs.get("operation") == "rank":
@@ -264,6 +264,13 @@ class TTSSelector(BaseTool):
             adapted["output_format"] = "wav"
         return adapted
 
+    @staticmethod
+    def _filter_candidates(candidates: list[BaseTool], inputs: dict[str, Any]) -> list[BaseTool]:
+        allowed = set(inputs.get("allowed_providers") or [])
+        if not allowed:
+            return candidates
+        return [tool for tool in candidates if tool.provider in allowed or tool.name in allowed]
+
     def _select_best_tool(
         self,
         inputs: dict[str, Any],
@@ -287,10 +294,6 @@ class TTSSelector(BaseTool):
         )
         if preferred == "openai" and wants_audio_output:
             preferred = "openai_audio"
-        allowed = set(inputs.get("allowed_providers") or [])
-        if allowed:
-            candidates = [tool for tool in candidates if tool.provider in allowed]
-
         rankings = rank_providers(candidates, task_context)
 
         tool_by_provider: dict[str, BaseTool] = {}

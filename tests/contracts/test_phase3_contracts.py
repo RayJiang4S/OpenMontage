@@ -699,7 +699,9 @@ class TestCapabilityMetadata:
             "fal.ai",
             "google_tts",
             "kling_official",
+            "minimax",
             "openai",
+            "openai_audio",
             "piper",
         }
 
