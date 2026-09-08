@@ -257,11 +257,13 @@ stages:
       - audio_mixer
     optional_tools:
       - video_stitch
+      - visual_sync_anchors
     tools_available:
       - video_compose
       - hyperframes_compose
       - audio_mixer
       - video_stitch
+      - visual_sync_anchors
     checkpoint_required: true
     human_approval_default: false
     review_focus:
@@ -287,7 +289,13 @@ stages:
       - script
     produces:
       - publish_log
-    tools_available: []
+      - final_package_manifest
+    tools_available:
+      - publish_packager
+      - video_feedback_review_package
+
+    optional_tools:
+      - video_feedback_review_package
     checkpoint_required: true
     human_approval_default: true
     review_focus:

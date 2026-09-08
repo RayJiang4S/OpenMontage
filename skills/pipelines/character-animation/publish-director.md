@@ -33,3 +33,15 @@ This stage gates on human approval (`human_approval_default: true`). After revie
 checkpoint with `status="awaiting_human"`, present the summary (the Backlot board renders
 the artifact), and **END YOUR TURN**. Do not start the next stage in the same response.
 Approval is per-gate — an earlier "go ahead" does not cover this gate.
+
+## Local production packaging
+
+When packaging a finished Chinese explainer or similar deliverable, use
+`publish_packager` if available instead of copying files by hand. It should
+write `final_package_manifest.json` and keep cover/first-frame handling
+from `script.cover_policy`.
+
+For iterative human review before final publishing, read
+`skills/core/video-feedback-review-package.md` and use
+`video_feedback_review_package` for the keyed local review page. Run Visual
+Timing QA for narration-led motion scenes before treating a package as final.
